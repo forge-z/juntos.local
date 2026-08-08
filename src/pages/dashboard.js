@@ -85,8 +85,8 @@ export default async function dashboardPage() {
     const totalIndividualMy = individualMyTxs + individualMyPa;
     const totalIndividualPartner = individualPartnerTxs + individualPartnerPa;
 
-    const myIncome = me?.monthly_income || 0;
-    const partnerIncome = partner?.monthly_income || 0;
+    const myIncome = Number(me?.monthly_income) || 0;
+    const partnerIncome = Number(partner?.monthly_income) || 0;
     const totalIncome = myIncome + partnerIncome;
 
     // What each should pay: metade do que é 50/50, fatia por renda do que

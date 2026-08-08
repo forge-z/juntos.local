@@ -51,7 +51,7 @@ export default {
   'nav.skipToContent': 'Pular para o conteúdo',
   'nav.mainNav': 'Navegação principal',
   'nav.mobileNav': 'Navegação móvel',
-  'nav.logout': 'Sair da conta',
+  'nav.logout': 'Sair',
   'nav.logoutConfirmTitle': 'Sair da conta',
   'nav.logoutConfirmMessage': 'Tem certeza que deseja sair?',
   'nav.logoutConfirmLabel': 'Sair',
@@ -261,6 +261,7 @@ export default {
 
   // ── Parcelas / Financiamentos ────────────────────
   'parcelas.title': 'Parcelas / Financiamentos',
+  'parcelas.subtitle': 'Parcelas simples: informe o total e em quantas vezes. Vale para qualquer compra parcelada ou financiamento.',
   'parcelas.countLabel': ['{count} parcela', '{count} parcelas'],
   'parcelas.new': 'Nova parcela',
   'parcelas.emptyTitle': 'Nenhuma parcela cadastrada',
@@ -322,6 +323,8 @@ export default {
   'parcelas.deletedToast': 'Parcela excluída',
 
   // ── Charts ───────────────────────────────────────
+  'charts.noDataTitle': 'Sem dados neste ciclo',
+  'charts.noDataText': 'Lance as primeiras despesas para ver os gastos por categoria.',
   'charts.title': 'Análises',
   'charts.subtitle': 'Visão por ciclo financeiro e categoria',
   'charts.expensesByPeriod': 'Gastos por ciclo (12 ciclos)',

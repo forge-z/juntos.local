@@ -37,7 +37,9 @@ function memberView(row) {
     name: row.display_name,
     email: `${row.username}@local`,
     username: row.username,
-    monthly_income: fmtMoney(row.income_cents),
+    // número, não string: o dashboard soma as rendas dos dois para calcular
+    // a divisão proporcional (string "6000.00" + "3000.00" viraria concatenação)
+    monthly_income: Number(row.income_cents) / 100,
     role: row.role,
     is_manual: false,
   };
@@ -234,7 +236,7 @@ export async function buildApp(config, db) {
     const description = String(body.description || '').trim();
     const amount = parseMoney(body.amount);
     const date = parseDate(body.date, config.timezone);
-    const split = SPLIT_TYPES.includes(body.split_type) ? body.split_type : 'equal';
+    const split = SPLIT_TYPES.includes(body.split_type) ? body.split_type : 'proportional';
     if (!description || description.length > 160 || !amount || !date || !CATEGORIES.includes(body.category || 'outros') || !SPLIT_TYPES.includes(split)) {
       return sendError(reply, 422, 'invalid_transaction', 'Despesa inválida');
     }

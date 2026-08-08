@@ -28,7 +28,7 @@ export default async function parcelasPage() {
       <div class="page-header">
         <div>
           <h1><i class="ph ph-house"></i> ${t('parcelas.title')}</h1>
-          <div class="page-subtitle">${t('parcelas.countLabel', { count: parcelas.length })}</div>
+          <div class="page-subtitle">${t('parcelas.subtitle')}</div>
         </div>
         <button class="btn btn-primary" id="new-parcela-btn"><i class="ph ph-plus"></i> ${t('parcelas.new')}</button>
       </div>
@@ -69,7 +69,6 @@ export default async function parcelasPage() {
                 <div class="financing-info">
                   <span><i class="ph ph-currency-circle-dollar"></i> ${formatCurrency(currentValue)}${t('common.perMonth')}</span>
                   <span><i class="ph ph-calendar"></i> ${t('parcelas.remaining', { count: remaining })}</span>
-                  <span><i class="ph ph-target"></i> ${t('parcelas.dueDay', { day: p.due_day })}</span>
                 </div>
                 <div class="financing-actions">
                   ${p.paid_installments < p.total_installments ? `
@@ -112,16 +111,6 @@ export default async function parcelasPage() {
                 <input type="number" id="p-installments" class="input" placeholder="${t('parcelas.installmentsPlaceholder')}" min="1" max="600" required>
               </div>
             </div>
-            <div class="grid-2" style="margin-bottom:12px;">
-              <div class="input-group">
-                <label for="p-due">${t('parcelas.dueDayLabel')}</label>
-                <input type="number" id="p-due" class="input" placeholder="${t('parcelas.dueDayPlaceholder')}" min="1" max="31" required>
-              </div>
-              <div class="input-group">
-                <label for="p-paid-installments">${t('parcelas.paidInstallmentsLabel')}</label>
-                <input type="number" id="p-paid-installments" class="input" placeholder="${t('parcelas.paidInstallmentsPlaceholder')}" min="0">
-              </div>
-            </div>
             <div class="grid-2" style="margin-bottom:8px;">
               <div class="input-group">
                 <label for="p-responsible">${t('parcelas.responsibleLabel')}</label>
@@ -162,15 +151,11 @@ export default async function parcelasPage() {
 
       const total = Number(document.getElementById('p-total').value);
       const installments = Number(document.getElementById('p-installments').value);
-      const paidInstallments = Number(document.getElementById('p-paid-installments').value || 0);
-      const dueDay = Number(document.getElementById('p-due').value);
       const name = document.getElementById('p-name').value.trim();
 
       if (!name) { errorDiv.textContent = t('common.nameRequired'); errorDiv.style.display = 'block'; return; }
       if (!Number.isFinite(total) || total <= 0) { errorDiv.textContent = tError('invalid_total_value'); errorDiv.style.display = 'block'; return; }
       if (!installments || installments < 1) { errorDiv.textContent = tError('invalid_installment_count'); errorDiv.style.display = 'block'; return; }
-      if (!Number.isInteger(paidInstallments) || paidInstallments < 0 || paidInstallments > installments) { errorDiv.textContent = tError('invalid_paid_installments'); errorDiv.style.display = 'block'; return; }
-      if (!dueDay || dueDay < 1 || dueDay > 31) { errorDiv.textContent = t('parcelas.dueDayInvalid'); errorDiv.style.display = 'block'; return; }
 
       const btn = document.getElementById('p-submit-btn');
       btn.disabled = true;
@@ -181,8 +166,6 @@ export default async function parcelasPage() {
           name,
           total_value: total,
           total_installments: installments,
-          paid_installments: paidInstallments,
-          due_day: dueDay,
           responsible: document.getElementById('p-responsible').value,
           division_type: document.getElementById('p-division').value,
           icon: document.getElementById('p-icon').value,

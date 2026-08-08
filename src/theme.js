@@ -1,37 +1,14 @@
-/* ══════════════════════════════════════════════
-   juntos.cash — Tema claro/escuro
-   ══════════════════════════════════════════════ */
+/* juntos — Tema sempre acompanha o sistema (sem seletor) */
 
-const KEY = 'jc-theme'; // 'dark' | 'light' | 'system'
-
-export function getThemePref() {
-  try { return localStorage.getItem(KEY) || 'dark'; } catch { return 'dark'; }
-}
-
-export function resolveTheme(pref) {
-  if (pref === 'system') {
-    return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
-  }
-  return pref;
-}
-
-export function applyThemePref(pref) {
-  try { localStorage.setItem(KEY, pref); } catch { /* private mode */ }
-  const theme = resolveTheme(pref);
-  document.documentElement.dataset.theme = theme;
+export function applySystemTheme() {
+  if (typeof document === 'undefined') return;
+  const dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  document.documentElement.dataset.theme = dark ? 'dark' : 'light';
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.content = theme === 'light' ? '#F6F6FA' : '#0D0D13';
-  window.dispatchEvent(new CustomEvent('themechange', { detail: { pref, theme } }));
-}
-
-export function toggleTheme() {
-  const current = resolveTheme(getThemePref());
-  applyThemePref(current === 'dark' ? 'light' : 'dark');
+  if (meta) meta.content = dark ? '#0D0D13' : '#F6F6FA';
 }
 
 export function initTheme() {
-  applyThemePref(getThemePref());
-  window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => {
-    if (getThemePref() === 'system') applyThemePref('system');
-  });
+  applySystemTheme();
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applySystemTheme);
 }

@@ -7,8 +7,6 @@ import { navigate } from '../router.js';
 import { logout } from '../services/auth.js';
 import { showToast } from '../components/Toast.js';
 import { confirmDialog } from '../components/Confirm.js';
-import { toggleTheme, resolveTheme, getThemePref } from '../theme.js';
-import { renderLangSwitchBtn, wireLangSwitchBtn } from '../components/LangSwitcher.js';
 import { t, tError } from '../i18n/index.js';
 import { escapeHtml } from './_helpers.js';
 
@@ -19,10 +17,6 @@ const NAV_ITEMS = () => [
   { id: 'charts', label: t('nav.charts'), icon: 'chart-line', href: '#/charts' },
   { id: 'settings', label: t('nav.settings'), icon: 'gear', href: '#/settings' },
 ];
-
-function themeIcon() {
-  return resolveTheme(getThemePref()) === 'dark' ? 'sun' : 'moon';
-}
 
 export function renderAppLayout(activePage) {
   const app = document.getElementById('app');
@@ -57,12 +51,8 @@ export function renderAppLayout(activePage) {
             </div>
           </div>
           <div class="sidebar-actions">
-            ${renderLangSwitchBtn('sidebar-lang-btn', 'sidebar-action-btn')}
-            <button class="btn btn-ghost btn-sm sidebar-action-btn" id="theme-toggle-btn" title="${t('common.toggleTheme')}" aria-label="${t('common.toggleTheme')}">
-              <i class="ph ph-${themeIcon()}"></i>
-            </button>
             <button class="btn btn-ghost btn-sm sidebar-action-btn" id="logout-btn" title="${t('nav.logout')}" aria-label="${t('nav.logout')}">
-              <i class="ph ph-sign-out"></i>
+              <i class="ph ph-sign-out"></i> ${t('nav.logout')}
             </button>
           </div>
         </div>
@@ -88,17 +78,6 @@ export function renderAppLayout(activePage) {
   document.getElementById('skip-content-btn')?.addEventListener('click', () => {
     document.getElementById('page-content')?.focus({ preventScroll: false });
   });
-
-  wireLangSwitchBtn('sidebar-lang-btn');
-
-  // Theme toggle
-  const themeBtn = document.getElementById('theme-toggle-btn');
-  if (themeBtn) {
-    themeBtn.addEventListener('click', () => {
-      toggleTheme();
-      themeBtn.innerHTML = `<i class="ph ph-${themeIcon()}" aria-hidden="true"></i>`;
-    });
-  }
 
   // Logout handler
   const logoutBtn = document.getElementById('logout-btn');

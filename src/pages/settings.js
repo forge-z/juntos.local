@@ -13,9 +13,7 @@ import { navigate } from '../router.js';
 import { logout, updatePassword } from '../services/auth.js';
 import { exportHistoryCSV } from '../services/export.js';
 import { escapeHtml, formatCurrency } from './_helpers.js';
-import { getThemePref, applyThemePref } from '../theme.js';
-import { getLangPref, setLang, SUPPORTED_LOCALES, t, tError } from '../i18n/index.js';
-import { TUTORIAL_STEPS, FAQ_ITEMS, FINANCE_TIPS, FINANCING_GUIDE } from '../services/helpContent.js';
+import { t, tError } from '../i18n/index.js';
 import { getTierLabel } from '../services/subscription.js';
 import { apiFetch } from '../services/api.js';
 
@@ -26,8 +24,6 @@ export function closingDayLabel(value) {
   if (v < 0) return t('settings.nthBusinessDay', { n: -v });
   return t('settings.dayN', { n: v });
 }
-
-const FEEDBACK_EMAIL = 'aleolibor@gmail.com';
 
 export default async function settingsPage() {
   const app = document.getElementById('app');
@@ -46,7 +42,6 @@ export default async function settingsPage() {
     const name = user?.user_metadata?.name || '';
     const email = user?.email || '';
     const tierLabel = getTierLabel();
-    const canGuide = true;
     const canExport = true;
     const isAdmin = user?.role === 'admin';
 
@@ -160,41 +155,6 @@ export default async function settingsPage() {
       </div>
       ` : ''}
 
-      <!-- ── Aparência ── -->
-      <div class="settings-section">
-        <h3><i class="ph ph-palette"></i> ${t('settings.appearanceSection')}</h3>
-        <div class="card">
-          <div class="settings-row">
-            <span class="settings-label">${t('settings.appTheme')}</span>
-            <div class="theme-seg" id="theme-seg">
-              <button class="theme-seg-btn" data-theme-pref="light"><i class="ph ph-sun"></i> ${t('settings.themeLight')}</button>
-              <button class="theme-seg-btn" data-theme-pref="dark"><i class="ph ph-moon"></i> ${t('settings.themeDark')}</button>
-              <button class="theme-seg-btn" data-theme-pref="system"><i class="ph ph-desktop"></i> ${t('settings.themeSystem')}</button>
-            </div>
-          </div>
-          <div class="settings-row">
-            <span class="settings-label">${t('settings.language')}</span>
-            <div class="theme-seg" id="lang-seg">
-              <button class="theme-seg-btn" data-lang="pt-BR">Português</button>
-              <button class="theme-seg-btn" data-lang="en">English</button>
-              <button class="theme-seg-btn" data-lang="es">Español</button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- ── Ajuda e feedback ── -->
-      <div class="settings-section">
-        <div class="support-grid">
-          <button class="btn btn-outline support-btn" data-support="tutorial"><i class="ph ph-graduation-cap"></i> ${t('settings.help.tutorial')}</button>
-          <button class="btn btn-outline support-btn" data-support="faq"><i class="ph ph-question"></i> ${t('settings.help.faq')}</button>
-          <button class="btn btn-outline support-btn" data-support="dicas"><i class="ph ph-lightbulb"></i> ${t('settings.help.tips')}</button>
-          <button class="btn btn-outline support-btn" data-support="guia"><i class="ph ph-book-open"></i> ${t('settings.help.guide')}${canGuide ? '' : ' <i class="ph ph-lock-simple"></i>'}</button>
-          <button class="btn btn-outline support-btn" data-support="sugestoes"><i class="ph ph-chat-circle-text"></i> ${t('settings.help.suggestions')}</button>
-          <button class="btn btn-outline support-btn" data-support="bug"><i class="ph ph-bug"></i> ${t('settings.help.bug')}</button>
-        </div>
-      </div>
-
       <div class="settings-section">
         <button class="btn btn-danger-outline btn-block" id="settings-logout-btn"><i class="ph ph-sign-out"></i> ${t('nav.logout')}</button>
       </div>
@@ -216,93 +176,6 @@ export default async function settingsPage() {
             <button class="btn btn-ghost btn-sm" id="changelog-close-btn"><i class="ph ph-x"></i></button>
           </div>
           <div id="changelog-list" style="max-height:60vh;overflow-y:auto;"></div>
-        </div>
-      </dialog>
-
-      <!-- Tutorial Modal -->
-      <dialog id="tutorial-modal" class="modal-overlay">
-        <div class="modal" style="max-width:560px;">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-            <h2><i class="ph ph-graduation-cap"></i> ${t('settings.tutorialTitle')}</h2>
-            <button class="btn btn-ghost btn-sm" id="tutorial-close-btn"><i class="ph ph-x"></i></button>
-          </div>
-          <div class="help-list" style="max-height:65vh;overflow-y:auto;">
-            ${TUTORIAL_STEPS().map((step, i) => `
-              <div class="help-item">
-                <div class="help-item-icon"><i class="ph ph-${step.icon}"></i></div>
-                <div>
-                  <div class="help-item-title">${i + 1}. ${escapeHtml(step.title)}</div>
-                  <div class="help-item-text">${escapeHtml(step.text)}</div>
-                </div>
-              </div>
-            `).join('')}
-          </div>
-        </div>
-      </dialog>
-
-      <!-- FAQ Modal -->
-      <dialog id="faq-modal" class="modal-overlay">
-        <div class="modal" style="max-width:560px;">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-            <h2><i class="ph ph-question"></i> ${t('settings.faqTitle')}</h2>
-            <button class="btn btn-ghost btn-sm" id="faq-close-btn"><i class="ph ph-x"></i></button>
-          </div>
-          <div class="help-list" style="max-height:65vh;overflow-y:auto;">
-            ${FAQ_ITEMS().map(item => `
-              <div class="faq-item">
-                <div class="faq-question"><i class="ph ph-question-mark"></i> ${escapeHtml(item.q)}</div>
-                <div class="faq-answer">${escapeHtml(item.a)}</div>
-              </div>
-            `).join('')}
-          </div>
-        </div>
-      </dialog>
-
-      <!-- Finance Tips Modal -->
-      <dialog id="tips-modal" class="modal-overlay">
-        <div class="modal" style="max-width:560px;">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-            <h2><i class="ph ph-lightbulb"></i> ${t('settings.tipsTitle')}</h2>
-            <button class="btn btn-ghost btn-sm" id="tips-close-btn"><i class="ph ph-x"></i></button>
-          </div>
-          <div class="help-list" style="max-height:65vh;overflow-y:auto;">
-            ${FINANCE_TIPS().map(tip => `
-              <div class="help-item">
-                <div class="help-item-icon"><i class="ph ph-${tip.icon}"></i></div>
-                <div>
-                  <div class="help-item-title">${escapeHtml(tip.title)}</div>
-                  <div class="help-item-text">${escapeHtml(tip.text)}</div>
-                </div>
-              </div>
-            `).join('')}
-          </div>
-        </div>
-      </dialog>
-
-      <!-- Financing Guide Modal (Pro/Premium) -->
-      <dialog id="guia-modal" class="modal-overlay">
-        <div class="modal" style="max-width:560px;">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-            <h2><i class="ph ph-book-open"></i> ${t('settings.guideTitle')}</h2>
-            <button class="btn btn-ghost btn-sm" id="guia-close-btn"><i class="ph ph-x"></i></button>
-          </div>
-          <div class="help-list" style="max-height:65vh;overflow-y:auto;">
-            ${canGuide ? FINANCING_GUIDE().map(section => `
-              <div class="help-item">
-                <div class="help-item-icon"><i class="ph ph-${section.icon}"></i></div>
-                <div>
-                  <div class="help-item-title">${escapeHtml(section.title)}</div>
-                  <div class="help-item-text">${escapeHtml(section.text)}</div>
-                </div>
-              </div>
-            `).join('') : `
-              <div style="text-align:center;padding:var(--space-xl) var(--space-md);">
-                <i class="ph ph-lock-simple" style="font-size:2rem;color:var(--muted-dark);"></i>
-                <p style="color:var(--body-dark);font-size:0.875rem;margin:var(--space-md) 0 var(--space-lg);">${t('settings.guideLocked')}</p>
-                <span class="badge badge-brand">Local completo</span>
-              </div>
-            `}
-          </div>
         </div>
       </dialog>
 
@@ -376,66 +249,6 @@ export default async function settingsPage() {
       </dialog>
 
     `;
-
-    // ── Theme selector ──
-    const themeSeg = document.getElementById('theme-seg');
-    function refreshThemeSeg() {
-      const pref = getThemePref();
-      themeSeg.querySelectorAll('.theme-seg-btn').forEach(b => {
-        b.classList.toggle('active', b.dataset.themePref === pref);
-        b.setAttribute('aria-pressed', String(b.dataset.themePref === pref));
-      });
-    }
-    refreshThemeSeg();
-    themeSeg.querySelectorAll('.theme-seg-btn').forEach(b => {
-      b.addEventListener('click', () => {
-        applyThemePref(b.dataset.themePref);
-        refreshThemeSeg();
-      });
-    });
-
-    // ── Language selector ──
-    // setLang() dispara 'langchange', que re-renderiza a página inteira
-    // (ver main.js) — não precisa de refresh manual como o de tema, o
-    // próximo render já mostra o botão certo marcado como ativo.
-    const langSeg = document.getElementById('lang-seg');
-    const currentLang = getLangPref();
-    langSeg.querySelectorAll('.theme-seg-btn').forEach(b => {
-      b.classList.toggle('active', b.dataset.lang === currentLang);
-      b.setAttribute('aria-pressed', String(b.dataset.lang === currentLang));
-      b.addEventListener('click', () => {
-        if (SUPPORTED_LOCALES.includes(b.dataset.lang)) setLang(b.dataset.lang);
-      });
-    });
-
-    // ── Support buttons ──
-    document.querySelectorAll('.support-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const kind = btn.dataset.support;
-        if (kind === 'sugestoes') {
-          window.open(`mailto:${FEEDBACK_EMAIL}?subject=${encodeURIComponent(t('settings.suggestionSubject'))}`, '_blank');
-        } else if (kind === 'bug') {
-          window.open(`mailto:${FEEDBACK_EMAIL}?subject=${encodeURIComponent(t('settings.bugReportSubject'))}&body=${encodeURIComponent(t('settings.bugReportBody'))}`, '_blank');
-        } else if (kind === 'tutorial') {
-          document.getElementById('tutorial-modal').showModal();
-        } else if (kind === 'faq') {
-          document.getElementById('faq-modal').showModal();
-        } else if (kind === 'dicas') {
-          document.getElementById('tips-modal').showModal();
-        } else if (kind === 'guia') {
-          document.getElementById('guia-modal').showModal();
-        }
-      });
-    });
-
-    // Fecha os modais de ajuda (clique fora ou botão X)
-    [['tutorial-modal', 'tutorial-close-btn'], ['faq-modal', 'faq-close-btn'], ['tips-modal', 'tips-close-btn'], ['guia-modal', 'guia-close-btn']].forEach(([modalId, closeId]) => {
-      const modalEl = document.getElementById(modalId);
-      document.getElementById(closeId)?.addEventListener('click', () => modalEl.close());
-      modalEl?.addEventListener('pointerdown', (e) => {
-        if (e.target === modalEl) modalEl.close();
-      });
-    });
 
     // ── Versão + changelog ──
     const { APP_VERSION, CHANGELOG } = await import('../services/changelog.js');

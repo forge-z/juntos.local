@@ -79,7 +79,8 @@ test('renda atualiza e aparece na lista de membros', async () => {
   assert.equal(res.statusCode, 200);
   const members = await app.inject({ method: 'GET', url: '/api/v1/household/members', headers: auth() });
   const me = members.json().members.find(m => m.user_id === adminId);
-  assert.equal(me.monthly_income, '6000.00');
+  assert.equal(me.monthly_income, 6000);
+  assert.equal(typeof me.monthly_income, 'number');
 });
 
 test('CRUD de transações com divisão proporcional', async () => {
