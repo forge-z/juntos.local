@@ -1,0 +1,135 @@
+/* ══════════════════════════════════════════════
+   juntos.cash — Design Tokens
+   ══════════════════════════════════════════════ */
+
+:root {
+  /* 🟣 Magenta principal */
+  --brand: #C13FE0;
+  --brand-hover: #A932C4;
+  --brand-light: #E46CFF;
+  --brand-muted: #4A2352;
+  --brand-glow: rgba(228, 108, 255, 0.35);
+  --brand-soft: rgba(228, 108, 255, 0.12);
+
+  /* 🌈 Gradientes */
+  --gradient-brand: linear-gradient(135deg, #C13FE0 0%, #E46CFF 100%);
+  --gradient-brand-subtle: linear-gradient(135deg, rgba(228,108,255,0.14) 0%, rgba(228,108,255,0.06) 100%);
+  --gradient-surface: linear-gradient(180deg, rgba(228,108,255,0.05) 0%, transparent 60%);
+
+  /* ⚫ Cores de fundo (dark) */
+  --bg-dark: #180B1D;
+  --surface-dark: #1F1024;
+  --card-dark: #2E0F35;
+  --card-hover-dark: #391642;
+  --border-dark: #40213E;
+  --border-strong: #522B4E;
+
+  /* ⚪ Cores de texto (dark) */
+  --heading-dark: #F2F1FA;
+  --body-dark: #A6A5BE;
+  --muted-dark: #85849B;
+
+  /* ☀️ Tokens legados (páginas antigas em modo claro) */
+  --bg-light: #FFFFFF;
+  --surface-light: #F8F9FC;
+  --border-light: #E5EDF5;
+  --heading-light: #061B31;
+  --body-light: #64748D;
+
+  /* 🔤 Fontes */
+  --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', ui-monospace, monospace;
+
+  /* 📏 Espaçamento */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-lg: 16px;
+  --space-xl: 20px;
+  --space-xxl: 24px;
+  --space-xxxl: 32px;
+  --space-xxxxl: 48px;
+
+  /* 🎨 Border radius */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-full: 9999px;
+
+  /* 🌓 Sombras */
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.2);
+  --shadow-md: 0 6px 16px rgba(0,0,0,0.25);
+  --shadow-lg: 0 16px 48px rgba(0,0,0,0.35);
+  --shadow-brand: 0 4px 24px var(--brand-glow);
+  --ring: 0 0 0 3px var(--brand-soft);
+
+  /* 📐 Layout */
+  --max-width: 1120px;
+  --sidebar-w: 248px;
+
+  /* ✅ Status */
+  --success: #34D399;
+  --success-soft: rgba(52, 211, 153, 0.12);
+  --warning: #FBBF24;
+  --warning-soft: rgba(251, 191, 36, 0.12);
+  --danger: #F87171;
+  --danger-soft: rgba(248, 113, 113, 0.12);
+  --info: #60A5FA;
+  --danger-solid: #B91C1C;
+  --info-soft: rgba(96, 165, 250, 0.12);
+
+  /* 🏷️ Cores de categorias */
+  --cat-alimentacao: #FB923C;
+  --cat-moradia: #60A5FA;
+  --cat-transporte: #A78BFA;
+  --cat-saude: #34D399;
+  --cat-lazer: #F472B6;
+  --cat-educacao: #22D3EE;
+  --cat-assinaturas: #818CF8;
+  --cat-vestuario: #FACC15;
+  --cat-outros: #9CA3AF;
+
+  /* 🧊 Vidro (bottom nav) */
+  --nav-glass: rgba(20, 20, 28, 0.85);
+}
+
+/* ══════════════════════════════════════════════
+   ☀️ Tema claro — remapeia os mesmos tokens
+   ══════════════════════════════════════════════ */
+[data-theme="light"] {
+  /* No claro, o "magenta claro" de texto precisa escurecer para manter contraste */
+  --brand-light: #A932C4;
+  --brand-muted: #F5DFFA;
+  --brand-glow: rgba(193, 63, 224, 0.22);
+  --brand-soft: rgba(193, 63, 224, 0.10);
+  --gradient-brand-subtle: linear-gradient(135deg, rgba(193,63,224,0.10) 0%, rgba(228,108,255,0.04) 100%);
+  --gradient-surface: linear-gradient(180deg, rgba(193,63,224,0.05) 0%, transparent 60%);
+
+  --bg-dark: #FAF5FB;
+  --surface-dark: #FFFFFF;
+  --card-dark: #FFFFFF;
+  --card-hover-dark: #FBF3FC;
+  --border-dark: #F0E2F2;
+  --border-strong: #E2CBE6;
+
+  --heading-dark: #2A1330;
+  --body-dark: #5C4A62;
+  --muted-dark: #71607A;
+
+  --shadow-sm: 0 1px 3px rgba(24, 20, 60, 0.07);
+  --shadow-md: 0 6px 16px rgba(24, 20, 60, 0.09);
+  --shadow-lg: 0 16px 48px rgba(24, 20, 60, 0.13);
+
+  --success: #059669;
+  --success-soft: rgba(5, 150, 105, 0.10);
+  --warning: #D97706;
+  --warning-soft: rgba(217, 119, 6, 0.10);
+  --danger: #DC2626;
+  --danger-soft: rgba(220, 38, 38, 0.08);
+  --info: #2563EB;
+  --danger-solid: #B91C1C;
+  --info-soft: rgba(37, 99, 235, 0.10);
+
+  --nav-glass: rgba(255, 255, 255, 0.88);
+}

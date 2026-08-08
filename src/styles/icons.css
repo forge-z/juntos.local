@@ -1,0 +1,14 @@
+/* Local fallback icon layer. The app remains usable without a CDN or font download. */
+.ph { display: inline-block; width: 1em; min-width: 1em; font-family: system-ui, sans-serif !important; font-style: normal; font-weight: 700; line-height: 1; }
+.ph::before { content: '•'; }
+.ph-heart::before, .ph-heartbeat::before { content: '♥'; }
+.ph-check::before, .ph-check-circle::before { content: '✓'; }
+.ph-x::before, .ph-x-circle::before { content: '×'; }
+.ph-plus::before { content: '+'; }
+.ph-minus::before { content: '−'; }
+.ph-arrow-left::before { content: '←'; }
+.ph-arrow-right::before { content: '→'; }
+.ph-caret-down::before { content: '⌄'; }
+.ph-trash::before { content: '⌫'; }
+.ph-copy::before { content: '▣'; }
+.ph-warning::before, .ph-info::before { content: '!'; }
