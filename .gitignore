@@ -8,3 +8,4 @@ backups
 .env
 *.dump
 .DS_Store
+RELATORIO-IMPLEMENTACAO.md
