@@ -4,8 +4,6 @@ import { initTheme } from './theme.js';
 import { initLang, t } from './i18n/index.js';
 import { getSession } from './services/auth.js';
 import { loadHousehold } from './services/household.js';
-import { checkFeature } from './services/subscription.js';
-import { showToast } from './components/Toast.js';
 import { escapeHtml } from './pages/_helpers.js';
 import loginPage from './pages/login.js';
 import dashboardPage from './pages/dashboard.js';
@@ -13,6 +11,7 @@ import transactionsPage from './pages/transactions.js';
 import parcelasPage from './pages/parcelas.js';
 import chartsPage from './pages/charts.js';
 import settingsPage from './pages/settings.js';
+import setupPage from './pages/setup.js';
 
 initTheme();
 initLang();
@@ -22,17 +21,18 @@ registerRoute('/', async () => {
   navigate(session ? '/dashboard' : '/login', true);
 });
 registerRoute('/login', loginPage);
-const gated = { '/charts': 'charts', '/parcelas': 'parcelado' };
+registerRoute('/setup', async () => setupPage());
 const pages = { '/dashboard': dashboardPage, '/transactions': transactionsPage, '/parcelas': parcelasPage, '/charts': chartsPage, '/settings': settingsPage };
 for (const [path, handler] of Object.entries(pages)) {
   registerRoute(path, async (params) => {
     const session = await getSession();
     if (!session) return navigate('/login', true);
     store.setState({ user: session.user, session: true, loading: false, tier: 'premium' });
-    if (session.must_change_password && path !== '/settings') return navigate('/settings', true);
+    if (session.setup_required && path !== '/setup') return navigate('/setup', true);
+    if (path === '/setup' && !session.setup_required) return navigate('/dashboard', true);
+    if (session.must_change_password && !session.setup_required && path !== '/settings') return navigate('/settings', true);
     const household = await loadHousehold();
     if (!household) return navigate('/login', true);
-    if (gated[path] && !checkFeature(gated[path])) { showToast(t('app.upgradeRequiredToast'), 'info'); return; }
     return handler(params);
   });
 }

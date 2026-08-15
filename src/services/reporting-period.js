@@ -81,6 +81,15 @@ export function getReportingPeriods(now = new Date(), closingDay = 5, count = 12
   return periods;
 }
 
+export function getFutureReportingPeriods(now = new Date(), closingDay = 5, count = 6) {
+  const current = getCurrentReportingPeriod(now, closingDay);
+  return Array.from({ length: count }, (_, offset) => getPeriodForClosingMonth(
+    current.end.getFullYear(),
+    current.end.getMonth() + offset + 1,
+    closingDay,
+  ));
+}
+
 export function dateKeyInPeriod(dateKey, period) {
   return Boolean(dateKey && dateKey >= period.startKey && dateKey <= period.endKey);
 }

@@ -1,3 +1,5 @@
+import { centsToMoney, moneyToCents } from '../pages/_helpers.js';
+
 export function calculateContribution(
   records,
   userId,
@@ -8,11 +10,10 @@ export function calculateContribution(
     getPayer = (record) => record.paid_by_manual || record.paid_by,
   } = {},
 ) {
-  const myIncomeValue = Math.max(Number(myIncome) || 0, 0);
-  const partnerIncomeValue = Math.max(Number(partnerIncome) || 0, 0);
+  const myIncomeValue = Math.max(moneyToCents(myIncome), 0);
+  const partnerIncomeValue = Math.max(moneyToCents(partnerIncome), 0);
   const totalIncome = myIncomeValue + partnerIncomeValue;
   const myRatio = totalIncome > 0 ? myIncomeValue / totalIncome : 0.5;
-  const partnerRatio = totalIncome > 0 ? partnerIncomeValue / totalIncome : 0.5;
 
   let myPaid = 0;
   let partnerPaid = 0;
@@ -20,7 +21,7 @@ export function calculateContribution(
   let partnerExpected = 0;
 
   for (const record of records) {
-    const amount = Math.max(Number(getAmount(record)) || 0, 0);
+    const amount = Math.max(moneyToCents(getAmount(record)), 0);
     const isMine = getPayer(record) === userId;
 
     if (isMine) myPaid += amount;
@@ -30,21 +31,24 @@ export function calculateContribution(
       if (isMine) myExpected += amount;
       else partnerExpected += amount;
     } else if (record.split_type === 'proportional') {
-      myExpected += amount * myRatio;
-      partnerExpected += amount * partnerRatio;
+      // Calcula um lado e atribui o restante ao outro para preservar a
+      // soma exata em centavos (inclusive para valores ímpares).
+      const myAmount = Math.round(amount * myRatio);
+      myExpected += myAmount;
+      partnerExpected += amount - myAmount;
     } else {
-      myExpected += amount / 2;
-      partnerExpected += amount / 2;
+      myExpected += Math.round(amount / 2);
+      partnerExpected += amount - Math.round(amount / 2);
     }
   }
 
   return {
-    myPaid,
-    partnerPaid,
-    myExpected,
-    partnerExpected,
-    myBalance: myPaid - myExpected,
-    partnerBalance: partnerPaid - partnerExpected,
-    total: myPaid + partnerPaid,
+    myPaid: centsToMoney(myPaid),
+    partnerPaid: centsToMoney(partnerPaid),
+    myExpected: centsToMoney(myExpected),
+    partnerExpected: centsToMoney(partnerExpected),
+    myBalance: centsToMoney(myPaid - myExpected),
+    partnerBalance: centsToMoney(partnerPaid - partnerExpected),
+    total: centsToMoney(myPaid + partnerPaid),
   };
 }

@@ -1,4 +1,5 @@
 import { t } from '../i18n/index.js';
+import { PHOSPHOR_PATHS } from './phosphor.js';
 
 let generatedId = 0;
 
@@ -13,7 +14,22 @@ function labelDialog(dialog) {
 }
 
 export function enhanceAccessibility(root = document) {
-  root.querySelectorAll('.ph').forEach(icon => icon.setAttribute('aria-hidden', 'true'));
+  root.querySelectorAll('.ph').forEach(icon => {
+    icon.setAttribute('aria-hidden', 'true');
+    if (icon.dataset.phosphorReady) return;
+    const name = [...icon.classList].find(value => value.startsWith('ph-') && value !== 'ph');
+    const pathData = PHOSPHOR_PATHS[name?.slice(3)] || PHOSPHOR_PATHS.package;
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('viewBox', '0 0 256 256');
+    svg.setAttribute('aria-hidden', 'true');
+    svg.setAttribute('focusable', 'false');
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('fill', 'currentColor');
+    path.setAttribute('d', pathData);
+    svg.append(path);
+    icon.replaceChildren(svg);
+    icon.dataset.phosphorReady = 'true';
+  });
   root.querySelectorAll('.form-error').forEach(error => {
     error.setAttribute('role', 'alert');
     error.setAttribute('aria-live', 'assertive');

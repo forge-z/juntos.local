@@ -1,11 +1,12 @@
-/* juntos — Charts: gastos por ciclo (12 ciclos) e por categoria (ciclo atual) */
+/* juntos — Charts: histórico fechado, ciclo atual, projeção e categorias */
 
 import { store } from '../store.js';
 import { loadTransactions, getCategoryIcon, CATEGORY_COLORS } from '../services/transaction.js';
-import { getMembers } from '../services/household.js';
+import { loadParcelas } from '../services/parcela.js';
 import { renderAppLayout } from './_layout.js';
-import { dateKeyInPeriod, getCurrentReportingPeriod, getReportingPeriods } from '../services/reporting-period.js';
-import { escapeHtml, formatCurrency } from './_helpers.js';
+import { dateKeyInPeriod, getCurrentReportingPeriod, getFutureReportingPeriods, getReportingPeriods } from '../services/reporting-period.js';
+import { getProjectedInstallmentValue } from '../services/calculadora.js';
+import { escapeHtml, formatCurrency, sumMoney } from './_helpers.js';
 import { t, tError, categoryLabel, getLangPref } from '../i18n/index.js';
 
 function monthLabel(date, locale) {
@@ -22,33 +23,57 @@ export default async function chartsPage() {
 
   try {
     const locale = getLangPref();
-    const [transactions] = await Promise.all([loadTransactions(), getMembers()]);
+    const [transactions, parcelas] = await Promise.all([loadTransactions(), loadParcelas()]);
 
     const now = new Date();
     const closingDay = store.state.household?.closing_day ?? 5;
     const currentPeriod = getCurrentReportingPeriod(now, closingDay);
 
-    // Últimos 12 ciclos, respeitando o fechamento configurado pelo lar.
-    const monthlyData = getReportingPeriods(now, closingDay, 12).map(period => {
+    const actualPayer = (tx) => tx.paid_by_manual || tx.paid_by;
+    const visibleTransactions = transactions.filter(tx => tx.split_type !== 'individual' || actualPayer(tx) === store.state.user?.id);
+    const visibleParcelas = parcelas
+      .filter(p => p.split_type !== 'individual' || p.responsible === store.state.user?.id)
+      .map(p => ({ ...p, installment_value: getProjectedInstallmentValue(p) }));
+    const paymentRecords = visibleParcelas.flatMap(p => (p.payments || []).map(payment => ({
+      ...payment,
+      parcelaId: p.id,
+    })));
+    const cycleActualTotal = (period) => sumMoney(
+      visibleTransactions.filter(tx => dateKeyInPeriod(tx.date, period)),
+      tx => tx.amount,
+    ) + sumMoney(
+      paymentRecords.filter(payment => dateKeyInPeriod(String(payment.paid_at || '').slice(0, 10), period)),
+      payment => payment.amount,
+    );
+    const projectedCycleTotal = (offset) => sumMoney(
+      visibleParcelas.filter(p => p.paid_installments + offset < p.total_installments),
+      p => getProjectedInstallmentValue(p, offset),
+    );
+    const closedPeriods = getReportingPeriods(now, closingDay, 13)
+      .filter(period => period.end < currentPeriod.start)
+      .slice(-12);
+    const futurePeriods = getFutureReportingPeriods(now, closingDay, 6);
+    const toChartPoint = (period, status, projectedOffset = null) => {
       const d = period.end;
-      const monthTxs = transactions.filter(tx => dateKeyInPeriod(tx.date, period));
-      const total = monthTxs.reduce((s, tx) => s + Number(tx.amount), 0);
       return {
-        key: period.endKey.slice(0, 7),
+        key: period.endKey,
         label: monthLabel(d, locale),
-        total,
+        total: projectedOffset === null ? cycleActualTotal(period) : projectedCycleTotal(projectedOffset),
         year: d.getFullYear(),
+        status,
       };
-    });
-
-    const maxMonthly = Math.max(...monthlyData.map(d => d.total), 1);
+    };
+    const historyData = closedPeriods.map(period => toChartPoint(period, 'history'));
+    const currentData = [toChartPoint(currentPeriod, 'current')];
+    const futureData = futurePeriods.map((period, index) => toChartPoint(period, 'future', index));
+    const maxMonthly = Math.max(...historyData.concat(currentData, futureData).map(d => d.total), 1);
 
     // Categorias no ciclo atual
-    const currentTxs = transactions.filter(tx => dateKeyInPeriod(tx.date, currentPeriod));
+    const currentTxs = visibleTransactions.filter(tx => dateKeyInPeriod(tx.date, currentPeriod));
     const catTotals = {};
     currentTxs.forEach(tx => {
       const cat = tx.category || 'outros';
-      catTotals[cat] = (catTotals[cat] || 0) + Number(tx.amount);
+      catTotals[cat] = (catTotals[cat] || 0) + sumMoney([tx], item => item.amount);
     });
     const catEntries = Object.entries(catTotals).sort((a, b) => b[1] - a[1]);
     const maxCat = catEntries.length > 0 ? catEntries[0][1] : 1;
@@ -65,16 +90,23 @@ export default async function chartsPage() {
       <div class="chart-section">
         <h2><i class="ph ph-chart-bar"></i> ${t('charts.expensesByPeriod')}</h2>
         <div class="card">
+          <div class="chart-legend" aria-label="${t('charts.periodLegend')}" style="display:flex;flex-wrap:wrap;gap:var(--space-md);margin-bottom:var(--space-lg);font-size:0.75rem;color:var(--muted-dark);">
+            <span><b style="color:var(--muted-dark);">●</b> ${t('charts.closedHistory')}</span>
+            <span><b style="color:var(--brand-light);">●</b> ${t('charts.currentCycle')}</span>
+            <span><b style="color:var(--warning);">●</b> ${t('charts.futureProjection')}</span>
+          </div>
+          <h3 class="chart-subtitle">${t('charts.historyTitle')}</h3>
           <div class="chart-bar-container">
-            ${monthlyData.map(m => {
+            ${historyData.map(m => {
               const pct = maxMonthly > 0 ? (m.total / maxMonthly) * 100 : 0;
-              return `
-                <div class="chart-bar-wrapper">
-                  <span class="chart-bar-value">${m.total > 0 ? formatCurrency(m.total) : ''}</span>
-                  <div class="chart-bar" style="height:${Math.max(pct, 4)}%"></div>
-                  <span class="chart-bar-label">${m.label}/${String(m.year).slice(2)}</span>
-                </div>
-              `;
+              return `<div class="chart-bar-wrapper"><span class="chart-bar-value">${m.total > 0 ? formatCurrency(m.total) : ''}</span><div class="chart-bar chart-bar-history" style="height:${Math.max(pct, 4)}%"></div><span class="chart-bar-label">${m.label}/${String(m.year).slice(2)}</span></div>`;
+            }).join('')}
+          </div>
+          <h3 class="chart-subtitle">${t('charts.projectionTitle')}</h3>
+          <div class="chart-bar-container">
+            ${currentData.concat(futureData).map(m => {
+              const pct = maxMonthly > 0 ? (m.total / maxMonthly) * 100 : 0;
+              return `<div class="chart-bar-wrapper"><span class="chart-bar-value">${m.total > 0 ? formatCurrency(m.total) : ''}</span><div class="chart-bar chart-bar-${m.status}" style="height:${Math.max(pct, 4)}%"></div><span class="chart-bar-label">${m.label}/${String(m.year).slice(2)}</span></div>`;
             }).join('')}
           </div>
         </div>

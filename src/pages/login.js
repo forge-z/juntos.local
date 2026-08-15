@@ -16,7 +16,7 @@ export default function loginPage() {
         <div id="login-error" class="form-error" style="margin-bottom:12px;display:none"></div>
         <button type="submit" class="btn btn-primary btn-lg" id="login-btn">Entrar</button>
       </form>
-      <div class="auth-link">Acesso local de Alexandre e Priscila</div>
+      <div class="auth-link">Acesso local do seu lar</div>
     </div></div>`;
   const form = document.getElementById('login-form');
   const error = document.getElementById('login-error');
@@ -25,7 +25,7 @@ export default function loginPage() {
     event.preventDefault(); error.style.display = 'none'; button.disabled = true;
     try {
       const data = await login(document.getElementById('username').value.trim().toLowerCase(), document.getElementById('password').value);
-      navigate(data.must_change_password ? '/settings' : '/dashboard');
+      navigate(data.setup_required ? '/setup' : (data.must_change_password ? '/settings' : '/dashboard'));
     }
     catch (err) { error.textContent = tError(err); error.style.display = 'block'; button.disabled = false; }
   });

@@ -1,17 +1,17 @@
 /* juntos — Parcelas simples */
 
 import { store } from '../store.js';
-import { loadParcelas, createParcela, payInstallment, deleteParcela, FI_CATEGORIES, getFiIcon } from '../services/parcela.js';
+import { loadParcelas, createParcela, payInstallment, reversePayment, deleteParcela, FI_CATEGORIES, getFiIcon } from '../services/parcela.js';
 import { getMembers } from '../services/household.js';
 import { getProjectedInstallmentValue } from '../services/calculadora.js';
 import { renderAppLayout } from './_layout.js';
 import { enhanceAccessibility } from '../components/Accessibility.js';
-import { escapeHtml, formatCurrency } from './_helpers.js';
+import { escapeHtml, formatCurrency, formatDate } from './_helpers.js';
 import { showToast } from '../components/Toast.js';
 import { confirmDialog } from '../components/Confirm.js';
 import { t, tError, fiCategoryLabel, divisionLabel } from '../i18n/index.js';
 
-export default async function parcelasPage() {
+export default async function parcelasPage(params = {}) {
   const app = document.getElementById('app');
   document.body.className = '';
   renderAppLayout('parcelas');
@@ -70,6 +70,19 @@ export default async function parcelasPage() {
                   <span><i class="ph ph-currency-circle-dollar"></i> ${formatCurrency(currentValue)}${t('common.perMonth')}</span>
                   <span><i class="ph ph-calendar"></i> ${t('parcelas.remaining', { count: remaining })}</span>
                 </div>
+                ${p.payments?.length ? `
+                  <details class="payment-history">
+                    <summary>${t('parcelas.paymentHistory', { count: p.payments.length })}</summary>
+                    <div class="payment-history-list">
+                      ${p.payments.map((payment, index) => `
+                        <div class="payment-history-row">
+                          <span>${t('parcelas.paymentNumber', { number: payment.installment_number })} · ${formatDate(payment.paid_at.slice(0, 10))}</span>
+                          <span>${formatCurrency(payment.amount)}${index === p.payments.length - 1 ? ` <button type="button" class="link-button reverse-payment-btn" data-parcela-id="${p.id}" data-payment-id="${payment.id}">${t('parcelas.reversePayment')}</button>` : ''}</span>
+                        </div>
+                      `).join('')}
+                    </div>
+                  </details>
+                ` : ''}
                 <div class="financing-actions">
                   ${p.paid_installments < p.total_installments ? `
                     <button class="btn btn-primary btn-sm pay-parcela-btn" data-parcela-id="${p.id}"><i class="ph ph-check-circle"></i> ${t('parcelas.payInstallment')}</button>
@@ -204,6 +217,20 @@ export default async function parcelasPage() {
         } catch (err) { showToast(tError(err), 'error'); }
       });
     });
+
+    document.querySelectorAll('.reverse-payment-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const ok = await confirmDialog({ title: t('parcelas.reverseTitle'), message: t('parcelas.reverseMessage'), confirmLabel: t('parcelas.reversePayment'), danger: true });
+        if (!ok) return;
+        try {
+          await reversePayment(btn.dataset.parcelaId, btn.dataset.paymentId);
+          showToast(t('parcelas.reversedToast'), 'info');
+          parcelasPage();
+        } catch (err) { showToast(tError(err), 'error'); }
+      });
+    });
+
+    if (params.query?.new === '1') modal.showModal();
 
   } catch (err) {
     content.innerHTML = `<div class="empty-state"><div class="empty-state-icon"><i class="ph ph-warning-circle" style="font-size:2rem;color:var(--danger);"></i></div><div class="empty-state-title">${escapeHtml(tError(err))}</div></div>`;

@@ -41,11 +41,16 @@ export async function exportHistoryCSV({ duringAccountClosure = false } = {}) {
   );
 
   const parcelasCsv = rowsToCsv(
-    [t('common.name'), t('export.typeHeader'), t('export.totalValueHeader'), t('export.paidInstallmentsHeader'), t('export.totalInstallmentsHeader'), t('export.installmentValueHeader')],
-    parcelas.map(p => [p.name, typeLabels[p.type] || p.type, p.total_value, p.paid_installments, p.total_installments, getProjectedInstallmentValue(p)]),
+    [t('common.name'), t('export.typeHeader'), t('export.totalValueHeader'), t('export.paidValueHeader'), t('export.paidInstallmentsHeader'), t('export.totalInstallmentsHeader'), t('export.installmentValueHeader')],
+    parcelas.map(p => [p.name, typeLabels[p.type] || p.type, p.total_value, p.paid_value || '0.00', p.paid_installments, p.total_installments, getProjectedInstallmentValue(p)]),
   );
 
-  const content = `${t('export.expensesSection')}\n${txCsv}\n\n${t('export.installmentsSection')}\n${parcelasCsv}\n`;
+  const paymentsCsv = rowsToCsv(
+    [t('common.name'), t('export.installmentNumberHeader'), t('export.dateHeader'), t('export.amountHeader')],
+    parcelas.flatMap(p => (p.payments || []).map(payment => [p.name, payment.installment_number, payment.paid_at.slice(0, 10), payment.amount])),
+  );
+
+  const content = `${t('export.expensesSection')}\n${txCsv}\n\n${t('export.installmentsSection')}\n${parcelasCsv}\n\n${t('export.paymentsSection')}\n${paymentsCsv}\n`;
   const blob = new Blob(['﻿' + content], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');

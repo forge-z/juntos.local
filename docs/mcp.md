@@ -9,19 +9,19 @@ o agente (LLM) interpreta a linguagem natural e o servidor valida e grava.
 | Tool | Descrição |
 |---|---|
 | `get_context` | Membros, categorias, divisões, moeda e data de hoje. |
-| `create_expense` | Registra despesa. Só `description` e `amount` são obrigatórios; `date` hoje, `category` outros, `split_type` proportional, `paid_by` alexandre. `dry_run` valida sem gravar. |
-| `list_expenses` | Consultas como "quanto gastamos em agosto?" (filtro por mês/limite). |
+| `create_expense` | Registra despesa. Só `description` e `amount` são obrigatórios; `date` hoje, `category` outros, `split_type` proportional, `paid_by` o administrador. Consulte `get_context` para os usernames disponíveis. `dry_run` valida sem gravar; para gravar, `operation_id` é obrigatório e deve ser estável nos retries. |
+| `list_expenses` | Consultas como "quanto gastamos em agosto?" (filtro por mês/limite/cursor). |
 
 ## Instalar
 
 ```bash
-cd mcp && npm install
+npm --prefix mcp install
 ```
 
 ## Rodar
 
 ```bash
-JUNTOS_URL=http://localhost:4205 JUNTOS_API_TOKEN=jl_live_... npx juntos-mcp
+JUNTOS_URL=http://localhost:4205 JUNTOS_API_TOKEN=jl_live_... node mcp/server.js
 ```
 
 Sem token, o servidor sai com erro explicando onde criá-lo (Configurações →
@@ -49,12 +49,14 @@ API do agente).
 Reinicie o Claude Desktop. A partir daí a conversa flui natural:
 
 > **Você:** Paguei 287,43 no supermercado ontem com o Nubank.
-> **Claude:** `create_expense(description="Supermercado", amount="287,43", date="2026-08-07", category="alimentação", paid_by="alexandre", payment_method="Nubank Alexandre")` → confirma e grava.
+> **Claude:** consulte `get_context` e então use `create_expense(description="Supermercado", amount="287,43", date="2026-08-07", category="alimentação", paid_by="admin-configurado", payment_method="Cartão principal", operation_id="compra-2026-08-07-001")` → confirma e grava.
 
 ## Idempotência
 
-O servidor MCP deriva a `Idempotency-Key` dos argumentos (em memória, 15 min):
-se uma chamada falhar no meio (timeout de rede) e o agente repetir com os
-mesmos argumentos, a despesa não duplica — a API responde replay. Legítimas
-repetições idênticas na mesma janela são tratadas como replay (ver `ponytail:`
-no código).
+O servidor MCP usa `operation_id` como `Idempotency-Key` em toda gravação. Se
+uma chamada falhar no meio, repita com o mesmo `operation_id`; para uma nova
+despesa, gere outro. Chamadas de gravação sem esse campo são rejeitadas para
+evitar duplicação após timeout; `dry_run` pode omiti-lo.
+
+`list_expenses` retorna `pagination.next_cursor` quando há mais resultados;
+informe esse valor em `cursor` para continuar a consulta.

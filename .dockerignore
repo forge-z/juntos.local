@@ -2,7 +2,12 @@ node_modules
 mcp/node_modules
 dist
 data
+data-local
+*.db
+*.db-*
+*.sqlite*
 backups
 .env
+.env.*
 .git
 *.dump

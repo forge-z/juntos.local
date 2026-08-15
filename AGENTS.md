@@ -1,7 +1,7 @@
 # Instruções para o projeto `juntos`
 
-Versão leve do juntos.cash: um lar, dois usuários (Alexandre admin, Priscila
-member), despesas com divisão proporcional pela renda, parcelas simples,
+Versão leve do juntos.cash: um lar, dois usuários configuráveis (admin e
+segundo membro), despesas com divisão proporcional pela renda, parcelas simples,
 gráficos, exportação e agentes (MCP/API) em linguagem natural.
 
 ## Limites
@@ -11,6 +11,8 @@ gráficos, exportação e agentes (MCP/API) em linguagem natural.
   leitura; não edite nem copie credenciais deles.
 - Sem Postgres, sem SaaS, sem CDN, sem SAC/Price. Banco é SQLite
   (`node:sqlite`) em `data/juntos.db`.
+- Primeiro boot cria apenas `admin` / `Admin@123`; o assistente define os dois
+  usuários e exige a troca da senha provisória do segundo membro.
 - Um único token de agente (hash em `meta`); segredo exibido uma vez.
 - Dinheiro sempre em **centavos inteiros**; a API converte na borda.
 

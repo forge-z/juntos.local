@@ -18,7 +18,7 @@ function monthYearLabel(key, locale) {
   return new Intl.DateTimeFormat(locale, { month: 'long', year: 'numeric' }).format(new Date(y, m - 1, 1));
 }
 
-export default async function transactionsPage() {
+export default async function transactionsPage(params = {}) {
   const app = document.getElementById('app');
   document.body.className = '';
   renderAppLayout('transactions');
@@ -35,7 +35,7 @@ export default async function transactionsPage() {
     const user = store.state.user;
     const partner = members.find(m => m.user_id !== user.id);
 
-    renderTransactions(transactions, members, user, partner, content);
+    renderTransactions(transactions, members, user, partner, content, params.query || {});
   } catch (err) {
     content.innerHTML = `      <div class="empty-state"><div class="empty-state-icon"><i class="ph ph-warning-circle" style="font-size:2rem;color:var(--danger);"></i></div><div class="empty-state-title">${escapeHtml(tError(err))}</div></div>`;
   } finally {
@@ -43,7 +43,7 @@ export default async function transactionsPage() {
   }
 }
 
-function renderTransactions(transactions, members, user, partner, content) {
+function renderTransactions(transactions, members, user, partner, content, query = {}) {
   let editingId = null;
   const locale = getLangPref();
 
@@ -142,7 +142,7 @@ function renderTransactions(transactions, members, user, partner, content) {
           </div>
           <div class="input-group" style="margin-bottom:16px">
             <label for="tx-payment-method">${t('transactions.paymentMethodLabel')}</label>
-            <input type="text" id="tx-payment-method" class="input" placeholder="Ex.: Nubank Alexandre (opcional)" maxlength="100">
+            <input type="text" id="tx-payment-method" class="input" placeholder="Ex.: Cartão principal (opcional)" maxlength="100">
           </div>
           <div id="tx-error" class="form-error" style="margin-bottom:12px;display:none"></div>
           <div class="modal-actions">
@@ -346,4 +346,6 @@ function renderTransactions(transactions, members, user, partner, content) {
       submitting = false;
     }
   });
+
+  if (query.new === '1') openModal(null);
 }

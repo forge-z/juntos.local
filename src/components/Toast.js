@@ -24,8 +24,14 @@ export function showToast(message, type = 'info', duration = 4000) {
     container.setAttribute('aria-live', 'polite');
   }
 
+  // Evita empilhar a mesma confirmação quando uma interação dispara mais de
+  // um evento (por exemplo, durante uma navegação/rerender concorrente).
+  const toastKey = `${type}:${String(message)}`;
+  if ([...container.querySelectorAll('[data-toast-key]')].some((toast) => toast.dataset.toastKey === toastKey)) return;
+
   const el = document.createElement('div');
   el.className = `toast ${type}`;
+  el.dataset.toastKey = toastKey;
   el.setAttribute('role', type === 'error' || type === 'warning' ? 'alert' : 'status');
   el.setAttribute('aria-atomic', 'true');
   el.innerHTML = `

@@ -21,4 +21,9 @@ export async function createParcela(data) {
   return parcela;
 }
 export async function payInstallment(id) { const { parcela } = await apiFetch(`/parcelas/${id}/pay`, { method: 'POST' }); await loadParcelas(); return parcela; }
+export async function reversePayment(parcelaId, paymentId) {
+  const { parcela } = await apiFetch(`/parcelas/${parcelaId}/payments/${paymentId}`, { method: 'DELETE' });
+  await loadParcelas();
+  return parcela;
+}
 export async function deleteParcela(id) { await apiFetch(`/parcelas/${id}`, { method: 'DELETE' }); await loadParcelas(); }

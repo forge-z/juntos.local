@@ -69,7 +69,7 @@ export default async function settingsPage() {
           <div class="settings-row">
             <span class="settings-label">${t('settings.monthlyIncome')}</span>
             <div class="settings-input-inline">
-              <span class="settings-value" style="margin-right:8px;">${me?.monthly_income ? formatCurrency(me.monthly_income) : t('settings.notDefined')}</span>
+              <span class="settings-value" style="margin-right:8px;">${me?.monthly_income !== null && me?.monthly_income !== undefined ? formatCurrency(me.monthly_income) : t('settings.notDefined')}</span>
               <button class="btn btn-outline btn-sm" id="edit-income-btn"><i class="ph ph-pencil"></i> ${t('common.change')}</button>
             </div>
           </div>
@@ -105,7 +105,7 @@ export default async function settingsPage() {
         <h3><i class="ph ph-lock"></i> Senha</h3>
         <div class="card"><form id="password-change-form" style="display:flex;gap:var(--space-sm);flex-wrap:wrap;align-items:end;">
           <div class="input-group"><label for="current-password">Senha atual</label><input class="input" id="current-password" type="password" required></div>
-          <div class="input-group"><label for="new-password">Nova senha</label><input class="input" id="new-password" type="password" minlength="8" required></div>
+          <div class="input-group"><label for="new-password">Nova senha</label><input class="input" id="new-password" type="password" minlength="12" required></div>
           <button class="btn btn-outline" type="submit">Alterar senha</button>
         </form><div id="password-change-error" class="form-error" style="display:none;margin-top:var(--space-sm)"></div></div>
       </div>
@@ -128,6 +128,16 @@ export default async function settingsPage() {
               <span class="settings-value">${closingDayLabel(household.closing_day)}</span>
               <button class="btn btn-outline btn-sm" id="edit-closing-day-btn"><i class="ph ph-pencil"></i> ${t('common.change')}</button>
             </div>
+          </div>
+          <div class="settings-row">
+            <div>
+              <div class="settings-label">${t('settings.autoPayInstallments')}</div>
+              <div class="settings-help">${t('settings.autoPayInstallmentsHelp')}</div>
+            </div>
+            <label class="toggle-control">
+              <input type="checkbox" id="auto-pay-installments" aria-label="${t('settings.autoPayInstallments')}" ${household.auto_pay_installments ? 'checked' : ''}>
+              <span class="toggle-slider" aria-hidden="true"></span>
+            </label>
           </div>
           <div class="settings-row" style="flex-direction:column;align-items:stretch;gap:var(--space-md);padding:var(--space-lg) 0;">
             <span class="settings-label" style="margin-bottom:4px;">${t('settings.participants')}</span>
@@ -186,7 +196,7 @@ export default async function settingsPage() {
           <form id="income-form">
             <div class="input-group" style="margin-bottom:8px">
               <label for="income-value">${t('settings.newIncomeLabel')}</label>
-              <input type="number" id="income-value" class="input" placeholder="${t('household.incomePlaceholder')}" min="0" step="100" value="${me?.monthly_income || ''}">
+            <input type="number" id="income-value" class="input" placeholder="${t('household.incomePlaceholder')}" min="0" step="100" value="${me?.monthly_income ?? ''}">
             </div>
             <div id="income-error" class="form-error" style="margin-bottom:12px;display:none"></div>
             <div class="modal-actions">
@@ -320,7 +330,7 @@ export default async function settingsPage() {
       errorDiv.style.display = 'none';
       const income = document.getElementById('income-value').value;
 
-      if (!income || Number(income) <= 0) {
+      if (income === '' || Number.isNaN(Number(income)) || Number(income) < 0) {
         errorDiv.textContent = t('settings.incomeInvalid');
         errorDiv.style.display = 'block';
         return;
@@ -432,6 +442,23 @@ export default async function settingsPage() {
       }
     });
 
+    document.getElementById('auto-pay-installments')?.addEventListener('change', async (event) => {
+      const checkbox = event.currentTarget;
+      if (checkbox.dataset.saving === 'true') return;
+      checkbox.dataset.saving = 'true';
+      checkbox.disabled = true;
+      try {
+        await updateHousehold({ auto_pay_installments: checkbox.checked });
+        showToast(t(checkbox.checked ? 'settings.autoPayEnabledToast' : 'settings.autoPayDisabledToast'), 'success');
+      } catch (err) {
+        checkbox.checked = !checkbox.checked;
+        showToast(tError(err), 'error');
+      } finally {
+        checkbox.disabled = false;
+        delete checkbox.dataset.saving;
+      }
+    });
+
     // ── Exportar dados (Pro/Premium) ──
     const exportBtn = document.getElementById('export-data-btn');
     if (exportBtn && canExport) {
@@ -449,84 +476,6 @@ export default async function settingsPage() {
         }
       });
     }
-
-    // ── Payment methods ──
-    document.getElementById('add-pm-btn')?.addEventListener('click', async () => {
-      const pmName = document.getElementById('new-pm-name').value.trim();
-      if (!pmName) { showToast(t('paymentMethod.nameRequired'), 'error'); return; }
-      const isDefault = document.getElementById('new-pm-default').checked;
-      try {
-        await createPaymentMethod(pmName, isDefault);
-        showToast(t('paymentMethod.addedToast'), 'success');
-        settingsPage();
-      } catch (err) { showToast(tError(err), 'error'); }
-    });
-
-    document.querySelectorAll('.set-default-pm-btn').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        try {
-          await updatePaymentMethod(btn.dataset.pmId, { is_default: true });
-          showToast(t('settings.defaultPmUpdatedToast'), 'success');
-          settingsPage();
-        } catch (err) { showToast(tError(err), 'error'); }
-      });
-    });
-
-    document.querySelectorAll('.del-pm-btn').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const ok = await confirmDialog({
-          title: t('settings.deleteMethodTitle'),
-          message: t('settings.deleteMethodMessage'),
-          confirmLabel: t('common.delete'),
-          danger: true,
-        });
-        if (!ok) return;
-        try {
-          await deletePaymentMethod(btn.dataset.pmId);
-          showToast(t('settings.pmDeletedToast'), 'info');
-          settingsPage();
-        } catch (err) { showToast(tError(err), 'error'); }
-      });
-    });
-
-    // ── Payment methods ──
-    document.getElementById('add-pm-btn')?.addEventListener('click', async () => {
-      const pmName = document.getElementById('new-pm-name').value.trim();
-      if (!pmName) { showToast(t('paymentMethod.nameRequired'), 'error'); return; }
-      const isDefault = document.getElementById('new-pm-default').checked;
-      try {
-        await createPaymentMethod(pmName, isDefault);
-        showToast(t('paymentMethod.addedToast'), 'success');
-        settingsPage();
-      } catch (err) { showToast(tError(err), 'error'); }
-    });
-
-    document.querySelectorAll('.set-default-pm-btn').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        try {
-          await updatePaymentMethod(btn.dataset.pmId, { is_default: true });
-          showToast(t('settings.defaultPmUpdatedToast'), 'success');
-          settingsPage();
-        } catch (err) { showToast(tError(err), 'error'); }
-      });
-    });
-
-    document.querySelectorAll('.del-pm-btn').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const ok = await confirmDialog({
-          title: t('settings.deleteMethodTitle'),
-          message: t('settings.deleteMethodMessage'),
-          confirmLabel: t('common.delete'),
-          danger: true,
-        });
-        if (!ok) return;
-        try {
-          await deletePaymentMethod(btn.dataset.pmId);
-          showToast(t('settings.pmDeletedToast'), 'info');
-          settingsPage();
-        } catch (err) { showToast(tError(err), 'error'); }
-      });
-    });
 
     // ── Senha ──
     document.getElementById('password-change-form')?.addEventListener('submit', async (event) => {

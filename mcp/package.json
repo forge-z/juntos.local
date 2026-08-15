@@ -1,6 +1,7 @@
 {
   "name": "juntos-mcp",
-  "private": true,
+  "private": false,
+  "license": "MIT",
   "version": "1.0.0",
   "type": "module",
   "bin": { "juntos-mcp": "server.js" },

@@ -3,6 +3,7 @@ import { initDb } from './db.js';
 import { buildApp } from './app.js';
 
 const config = loadConfig();
+process.umask(0o077);
 const db = await initDb(config);
 const app = await buildApp(config, db);
 

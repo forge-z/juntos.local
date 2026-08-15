@@ -3,7 +3,9 @@ services:
     build: .
     env_file: .env
     ports:
-      - "${HOST_PORT:-4205}:3000"
+      # Restrinja a publicação ao próprio host por padrão durante o bootstrap.
+      # Para expor atrás de um proxy/rede, defina HOST_BIND explicitamente.
+      - "${HOST_BIND:-127.0.0.1}:${HOST_PORT:-4205}:3000"
     volumes:
       - juntos-data:/app/data
       - ./backups:/app/backups

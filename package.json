@@ -1,8 +1,10 @@
 {
   "name": "juntos",
-  "private": true,
+  "private": false,
+  "license": "MIT",
   "version": "1.0.0",
   "type": "module",
+  "engines": { "node": ">=22.16.0 <23" },
   "scripts": {
     "dev": "vite --port 3000",
     "dev:server": "node --env-file-if-exists=.env --watch server/index.js",

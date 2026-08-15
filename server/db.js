@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { mkdirSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import { DatabaseSync } from 'node:sqlite';
@@ -15,10 +15,13 @@ export async function hashPassword(password) {
 }
 
 export async function verifyPassword(password, encoded) {
-  const [, saltText, hashText] = String(encoded).split('$');
-  if (!saltText || !hashText) return false;
-  const derived = await scrypt(password, Buffer.from(saltText, 'base64url'), 64, { N: 16384, r: 8, p: 1 });
-  return crypto.timingSafeEqual(Buffer.from(hashText, 'base64url'), Buffer.from(derived));
+  try {
+    const [, saltText, hashText] = String(encoded).split('$');
+    if (!saltText || !hashText || typeof password !== 'string') return false;
+    const derived = await scrypt(password, Buffer.from(saltText, 'base64url'), 64, { N: 16384, r: 8, p: 1 });
+    const expected = Buffer.from(hashText, 'base64url');
+    return expected.length === derived.length && crypto.timingSafeEqual(expected, Buffer.from(derived));
+  } catch { return false; }
 }
 
 // ── Dinheiro: sempre inteiro em centavos, nunca float ─────────────────────
@@ -28,6 +31,14 @@ export function parseMoney(value) {
   if (!/^\d+(\.\d{1,2})?$/.test(text)) return null;
   const cents = Math.round(Number(text) * 100);
   if (!(cents > 0) || cents > 99_999_999_999_999) return null;
+  return cents;
+}
+
+export function parseNonNegativeMoney(value) {
+  const text = String(value ?? '').trim().replace(',', '.');
+  if (!/^\d+(\.\d{1,2})?$/.test(text)) return null;
+  const cents = Math.round(Number(text) * 100);
+  if (!(cents >= 0) || cents > 99_999_999_999_999) return null;
   return cents;
 }
 
@@ -47,6 +58,11 @@ export function parseDate(value, timezone) {
   const date = new Date(`${text}T12:00:00Z`);
   const roundtrip = `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`;
   return roundtrip === text ? text : null;
+}
+
+export function parseDateOrToday(value, timezone) {
+  if (value === undefined || value === null || String(value).trim() === '') return todayKey(timezone);
+  return parseDate(value, timezone);
 }
 
 // ── Transação SQL ──────────────────────────────────────────────────────────
@@ -130,31 +146,114 @@ CREATE TABLE IF NOT EXISTS meta (
 );
 `;
 
-// Seed idempotente: cria Alexandre/Priscila, o lar e as configurações iniciais.
-// Nunca há senha padrão no código — sem as duas variáveis o primeiro boot falha.
-export async function initDb(config) {
-  mkdirSync(config.dataDir, { recursive: true });
-  const db = new DatabaseSync(path.join(config.dataDir, 'juntos.db'));
-  db.exec('PRAGMA journal_mode = WAL;');
-  db.exec('PRAGMA foreign_keys = ON;');
-  db.exec(SCHEMA);
+export const BOOTSTRAP_ADMIN_USERNAME = 'admin';
+export const BOOTSTRAP_ADMIN_DISPLAY_NAME = 'Admin';
+export const BOOTSTRAP_ADMIN_PASSWORD = 'Admin@123';
 
-  const count = db.prepare('SELECT count(*) AS n FROM users').get().n;
-  if (count === 0 && (!config.initialPasswords.alexandre || !config.initialPasswords.priscila)) {
-    throw new Error('ALEXANDRE_INITIAL_PASSWORD and PRISCILA_INITIAL_PASSWORD are required for the first boot');
-  }
-  const insertUser = db.prepare('INSERT OR IGNORE INTO users(id, username, display_name, password_hash, role) VALUES (?, ?, ?, ?, ?)');
-  const findUser = db.prepare('SELECT id FROM users WHERE username = ?');
-  for (const user of [
-    { username: 'alexandre', displayName: 'Alexandre', role: 'admin', password: config.initialPasswords.alexandre },
-    { username: 'priscila', displayName: 'Priscila', role: 'member', password: config.initialPasswords.priscila },
-  ]) {
-    if (!findUser.get(user.username)) {
-      insertUser.run(crypto.randomUUID(), user.username, user.displayName, await hashPassword(user.password), user.role);
+const MIGRATIONS = [
+  {
+    version: 1,
+    name: 'installment-payment-ledger',
+    up(db) {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS installment_payments (
+          id TEXT PRIMARY KEY,
+          parcela_id TEXT NOT NULL REFERENCES parcelas(id) ON DELETE CASCADE,
+          installment_number INTEGER NOT NULL CHECK (installment_number > 0),
+          amount_cents INTEGER NOT NULL CHECK (amount_cents > 0),
+          paid_at TEXT NOT NULL,
+          created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+          UNIQUE (parcela_id, installment_number)
+        );
+        CREATE INDEX IF NOT EXISTS installment_payments_date_idx ON installment_payments(paid_at DESC);
+      `);
+      const backfillPayment = db.prepare(
+        'INSERT OR IGNORE INTO installment_payments(id, parcela_id, installment_number, amount_cents, paid_at) VALUES (?, ?, ?, ?, ?)',
+      );
+      for (const parcela of db.prepare('SELECT * FROM parcelas WHERE paid_installments > 0').all()) {
+        const base = Math.floor(parcela.total_value_cents / parcela.total_installments);
+        for (let number = 1; number <= parcela.paid_installments; number += 1) {
+          const amount = number === parcela.total_installments
+            ? parcela.total_value_cents - base * (parcela.total_installments - 1)
+            : base;
+          backfillPayment.run(crypto.randomUUID(), parcela.id, number, amount, parcela.updated_at || parcela.created_at);
+        }
+      }
+    },
+  },
+  {
+    version: 2,
+    name: 'installment-payment-cycle',
+    up(db) {
+      db.exec(`
+        ALTER TABLE installment_payments ADD COLUMN cycle_closing_key TEXT;
+        CREATE UNIQUE INDEX installment_payments_cycle_uq
+          ON installment_payments(parcela_id, cycle_closing_key)
+          WHERE cycle_closing_key IS NOT NULL;
+      `);
+    },
+  },
+];
+
+function applyMigrations(db) {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS schema_migrations (
+      version INTEGER PRIMARY KEY,
+      name TEXT NOT NULL,
+      applied_at TEXT NOT NULL
+    );
+  `);
+  const latest = MIGRATIONS[MIGRATIONS.length - 1]?.version || 0;
+  const current = db.prepare('SELECT COALESCE(MAX(version), 0) AS version FROM schema_migrations').get().version;
+  if (current > latest) throw new Error(`Database schema ${current} is newer than application schema ${latest}`);
+  const applied = db.prepare('SELECT version FROM schema_migrations WHERE version = ?');
+  const record = db.prepare('INSERT INTO schema_migrations(version, name, applied_at) VALUES (?, ?, ?)');
+  for (const migration of MIGRATIONS) {
+    if (applied.get(migration.version)) continue;
+    db.exec('BEGIN');
+    try {
+      migration.up(db);
+      record.run(migration.version, migration.name, new Date().toISOString());
+      db.exec('COMMIT');
+    } catch (error) {
+      db.exec('ROLLBACK');
+      throw error;
     }
   }
+}
+
+// Seed idempotente: o primeiro boot cria somente um administrador temporário.
+// O assistente autenticado troca a senha e cria o segundo usuário antes de liberar o app.
+export async function initDb(config) {
+  mkdirSync(config.dataDir, { recursive: true });
+  chmodSync(config.dataDir, 0o700);
+  const dbPath = path.join(config.dataDir, 'juntos.db');
+  const db = new DatabaseSync(dbPath);
+  chmodSync(dbPath, 0o600);
+  for (const sidecar of [`${dbPath}-wal`, `${dbPath}-shm`]) {
+    if (existsSync(sidecar)) chmodSync(sidecar, 0o600);
+  }
+  db.exec('PRAGMA journal_mode = WAL;');
+  db.exec('PRAGMA foreign_keys = ON;');
+  db.exec('PRAGMA busy_timeout = 5000;');
+  db.exec(SCHEMA);
+  applyMigrations(db);
+
+  const count = db.prepare('SELECT count(*) AS n FROM users').get().n;
+  const existingAdmin = db.prepare("SELECT username, must_change_password FROM users WHERE role = 'admin' AND active = 1 ORDER BY created_at ASC LIMIT 1").get();
+  const insertUser = db.prepare('INSERT OR IGNORE INTO users(id, username, display_name, password_hash, role) VALUES (?, ?, ?, ?, ?)');
+  const findUser = db.prepare('SELECT id FROM users WHERE username = ?');
+  if (count === 0) {
+    insertUser.run(
+      crypto.randomUUID(), BOOTSTRAP_ADMIN_USERNAME, BOOTSTRAP_ADMIN_DISPLAY_NAME,
+      await hashPassword(BOOTSTRAP_ADMIN_PASSWORD), 'admin',
+    );
+  }
   const setMeta = db.prepare('INSERT OR IGNORE INTO meta(key, value) VALUES (?, ?)');
-  setMeta.run('household_name', 'Alexandre & Priscila');
+  const needsSetup = count === 0 || (count === 1 && existingAdmin?.username === BOOTSTRAP_ADMIN_USERNAME && existingAdmin.must_change_password === 1);
+  setMeta.run('setup_pending', needsSetup ? '1' : '0');
+  setMeta.run('household_name', 'Meu lar');
   setMeta.run('closing_day', '5');
+  setMeta.run('auto_pay_installments', '0');
   return db;
 }

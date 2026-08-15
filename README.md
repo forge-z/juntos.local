@@ -3,7 +3,8 @@
 Finanças a dois, no seu servidor. Versão leve e privada do juntos.cash para um
 home server: **um lar, dois usuários, zero SaaS**.
 
-- Dois usuários locais: **Alexandre** (admin) e **Priscila** (member).
+- Primeiro boot seguro: cria somente **Admin** com senha temporária `Admin@123`.
+- Um assistente autenticado define o administrador e cria o segundo usuário; a senha provisória do segundo usuário é trocada no primeiro login.
 - Despesas divididas **proporcionalmente pela renda** de cada um (ou 50/50, ou individual).
 - Parcelas simples (sem SAC/Price), gráficos, exportação CSV.
 - Agentes de IA (MCP ou API REST) registram despesas **em linguagem natural**.
@@ -14,7 +15,7 @@ home server: **um lar, dois usuários, zero SaaS**.
 | Camada | Escolha |
 |---|---|
 | Frontend | Vite + JavaScript puro (servido pelo próprio backend em produção) |
-| Backend | Node 22 + Fastify 5 |
+| Backend | Node 22.18 + Fastify 5 |
 | Banco | SQLite (`node:sqlite`, stdlib) — um arquivo `data/juntos.db` |
 | Deploy | Docker Compose com 1 serviço, `restart: unless-stopped` |
 
@@ -28,19 +29,41 @@ npm run dev:server   # backend em :3001
 npm run dev          # frontend em http://localhost:3000
 ```
 
+## Execução local sem Docker
+
+```bash
+cp .env.local.example .env
+npm install
+npm run build
+npm start
+```
+
+Acesse `http://localhost:4205`. O banco local fica em `./data-local`.
+
 ## Produção no home server
 
 ```bash
 cp .env.example .env
-# preencha as duas senhas iniciais (obrigatórias no primeiro boot)
 docker compose up -d --build
+
+# smoke test (opcional; com token também valida a API do agente)
+JUNTOS_SMOKE_URL=http://localhost:4205 ./scripts/smoke.sh
 ```
 
 Acesse `http://localhost:4205`. O banco fica no volume `juntos-data`; os
 backups em `./backups` (montado no host). Para HTTPS (Tailscale/reverse
 proxy), mude `APP_ORIGIN` e `COOKIE_SECURE=true`.
 
-Primeiro login usa a senha inicial do `.env` e exige troca imediata.
+O Compose publica `127.0.0.1:4205` por padrão para impedir que a senha
+temporária seja usada remotamente durante o primeiro boot. Depois de concluir
+o assistente, um proxy pode publicar o serviço definindo `HOST_BIND` (por
+exemplo, `0.0.0.0`) e configurando HTTPS/autenticação da rede.
+
+No primeiro boot, entre com usuário `admin` e senha `Admin@123`. O assistente
+pede o novo nome, usuário e senha definitiva do administrador, além do nome,
+usuário e senha provisória do segundo usuário. O segundo usuário será obrigado
+a trocar essa senha no primeiro login. A senha `Admin@123` deixa de funcionar
+após a configuração inicial.
 
 ## Backup e restauração
 
@@ -50,9 +73,8 @@ docker compose exec app ./scripts/backup.sh
 ./scripts/backup.sh
 
 # restaurar (pare o app antes):
-docker compose stop
-./scripts/restore.sh backups/juntos-20260808-123456.db
-docker compose up -d
+JUNTOS_RESTORE_CONFIRMED=1 ./scripts/restore.sh backups/juntos-20260808-123456.db
+# em Docker, pare/suba o compose; localmente, reinicie `npm start`
 ```
 
 Retenção: os últimos 14 backups (configurável via `JUNTOS_BACKUP_RETENTION`).
@@ -69,8 +91,8 @@ ontem com o Nubank" e o agente registra — data, categoria, divisão e pagador
 têm padrões sensatos, e `dry_run` valida antes de gravar.
 
 ```bash
-cd mcp && npm install
-JUNTOS_URL=http://localhost:4205 JUNTOS_API_TOKEN=jl_live_... npx juntos-mcp
+npm --prefix mcp install
+JUNTOS_URL=http://localhost:4205 JUNTOS_API_TOKEN=jl_live_... node mcp/server.js
 ```
 
 Configuração para o Claude Desktop:

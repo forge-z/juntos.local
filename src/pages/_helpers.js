@@ -4,12 +4,30 @@
 
 import { getLangPref } from '../i18n/index.js';
 
+// A borda do frontend também trabalha em centavos inteiros; conversões para
+// reais ficam restritas à apresentação e evitam somas acumuladas em float.
+export function moneyToCents(value) {
+  const text = String(value ?? '').trim().replace(',', '.');
+  if (/^-?\d+(\.\d{1,2})?$/.test(text)) {
+    const sign = text.startsWith('-') ? -1 : 1;
+    const [whole, fraction = ''] = text.replace('-', '').split('.');
+    return sign * (Number(whole) * 100 + Number(fraction.padEnd(2, '0')));
+  }
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? Math.round(numeric * 100) : 0;
+}
+
+export function centsToMoney(cents) { return Number(cents || 0) / 100; }
+
+export function sumMoney(items, getValue = item => item) {
+  return centsToMoney(items.reduce((sum, item) => sum + moneyToCents(getValue(item)), 0));
+}
+
 // A moeda local é sempre BRL; só a convenção de separador decimal/milhar muda por
 // idioma. 'R$ ' fica como prefixo literal (em vez de currencyDisplay do Intl)
 // pra manter o símbolo estável entre os 3 idiomas.
 export function formatCurrency(value, locale = getLangPref()) {
-  let num = Number(value);
-  if (isNaN(num)) num = 0;
+  const num = centsToMoney(moneyToCents(value));
   const formatted = new Intl.NumberFormat(locale, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,

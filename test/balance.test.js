@@ -16,3 +16,12 @@ test('contribuição mistura corretamente 50/50, proporcional e individual', () 
   assert.equal(result.myBalance, -10);
   assert.equal(result.partnerBalance, 10);
 });
+
+test('rateio proporcional preserva a soma exata em centavos', () => {
+  const result = calculateContribution([
+    { amount: 0.01, split_type: 'proportional', paid_by: 'me' },
+  ], 'me', 1, 2);
+  assert.equal(result.myExpected, 0);
+  assert.equal(result.partnerExpected, 0.01);
+  assert.equal(result.myExpected + result.partnerExpected, 0.01);
+});

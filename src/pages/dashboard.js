@@ -8,8 +8,9 @@ import { loadParcelas } from '../services/parcela.js';
 import { getMembers } from '../services/household.js';
 import { renderAppLayout } from './_layout.js';
 import { getProjectedInstallmentValue } from '../services/calculadora.js';
+import { calculateContribution } from '../services/balance.js';
 import { dateKeyInPeriod, formatReportingPeriod, getCurrentReportingPeriod } from '../services/reporting-period.js';
-import { escapeHtml, formatCurrency, formatDate } from './_helpers.js';
+import { escapeHtml, formatCurrency, formatDate, sumMoney } from './_helpers.js';
 import { t, tError, categoryLabel, getLangPref } from '../i18n/index.js';
 
 export default async function dashboardPage() {
@@ -33,80 +34,55 @@ export default async function dashboardPage() {
     const period = getCurrentReportingPeriod(now, state.household?.closing_day ?? 5);
     const monthName = formatReportingPeriod(period, getLangPref());
 
-    // O ciclo respeita o dia de fechamento configurado no lar.
+    // O ciclo respeita o dia de fechamento configurado no lar. Gastos
+    // individuais de outro membro nunca entram na visão deste usuário.
     const monthTxs = transactions.filter(tx => dateKeyInPeriod(tx.date, period));
+    const actualPayer = (tx) => tx.paid_by_manual || tx.paid_by;
+    const visibleTxs = monthTxs.filter(tx => tx.split_type !== 'individual' || actualPayer(tx) === user.id);
+    const sharedTxs = monthTxs.filter(tx => tx.split_type !== 'individual');
+    const individualTxs = visibleTxs.filter(tx => tx.split_type === 'individual');
 
     const monthParcelas = parcelas
       .filter(p => p.paid_installments < p.total_installments)
+      .filter(p => p.split_type !== 'individual' || p.responsible === user.id)
       .map(p => ({ ...p, installment_value: getProjectedInstallmentValue(p) }));
-    const paInstallments = monthParcelas.reduce((sum, p) => sum + Number(p.installment_value || 0), 0);
-
-    const totalInstallmentsValue = paInstallments;
-
-    const totalTransactions = monthTxs.reduce((sum, tx) => sum + Number(tx.amount), 0);
+    const sharedParcelas = monthParcelas.filter(p => p.split_type !== 'individual');
+    const individualParcelas = monthParcelas.filter(p => p.split_type === 'individual');
+    const totalTransactions = sumMoney(sharedTxs, tx => tx.amount);
+    const totalInstallmentsValue = sumMoney(sharedParcelas, p => p.installment_value || 0);
     const totalMonth = totalTransactions + totalInstallmentsValue;
+    const individualMonthTotal = sumMoney(individualTxs, tx => tx.amount)
+      + sumMoney(individualParcelas, p => p.installment_value || 0);
 
     // Calculate per-partner breakdown (individual = só para quem pagou)
     const me = members.find(m => m.user_id === user.id);
     const partner = members.find(m => m.user_id !== user.id);
 
-  const actualPayer = (tx) => tx.paid_by_manual || tx.paid_by;
-  const myPaid = monthTxs.filter(tx => actualPayer(tx) === user.id).reduce((s, tx) => s + Number(tx.amount), 0);
-  const partnerPaid = monthTxs.filter(tx => actualPayer(tx) !== user.id).reduce((s, tx) => s + Number(tx.amount), 0);
-
-    // Parcela contributions
-    const paMyPaid = monthParcelas.filter(p => p.responsible === user.id).reduce((s, p) => s + Number(p.installment_value || 0), 0);
-    const paPartnerPaid = monthParcelas.filter(p => p.responsible !== user.id).reduce((s, p) => s + Number(p.installment_value || 0), 0);
-    const totalMyPaid = myPaid + paMyPaid;
-    const totalPartnerPaid = partnerPaid + paPartnerPaid;
-
-    // For share calculation, cada split_type usa a regra certa:
-    // individual só conta pra quem pagou, equal é 50/50 literal (não por
-    // renda), proportional é por renda. Antes disso tudo (equal e
-    // proportional) caía no mesmo balde e levava a mesma fórmula de renda
-    // — um gasto marcado 50/50 acabava sendo calculado proporcional.
-    const equalTxs = monthTxs.filter(tx => tx.split_type === 'equal');
-    const totalEqual = equalTxs.reduce((s, tx) => s + Number(tx.amount), 0);
-    const proportionalTxs = monthTxs.filter(tx => tx.split_type !== 'individual' && tx.split_type !== 'equal');
-    const totalProportional = proportionalTxs.reduce((s, tx) => s + Number(tx.amount), 0);
-    const individualMyTxs = monthTxs.filter(tx => tx.split_type === 'individual' && actualPayer(tx) === user.id).reduce((s, tx) => s + Number(tx.amount), 0);
-    const individualPartnerTxs = monthTxs.filter(tx => tx.split_type === 'individual' && actualPayer(tx) !== user.id).reduce((s, tx) => s + Number(tx.amount), 0);
-
-    // Shared parcelas — mesma separação
-    const equalPa = monthParcelas.filter(p => p.split_type === 'equal');
-    const totalEqualPa = equalPa.reduce((s, p) => s + Number(p.installment_value || 0), 0);
-    const proportionalPa = monthParcelas.filter(p => p.split_type !== 'individual' && p.split_type !== 'equal');
-    const totalProportionalPa = proportionalPa.reduce((s, p) => s + Number(p.installment_value || 0), 0);
-    const individualMyPa = monthParcelas.filter(p => p.split_type === 'individual' && p.responsible === user.id).reduce((s, p) => s + Number(p.installment_value || 0), 0);
-    const individualPartnerPa = monthParcelas.filter(p => p.split_type === 'individual' && p.responsible !== user.id).reduce((s, p) => s + Number(p.installment_value || 0), 0);
-
-    const totalEqualAll = totalEqual + totalEqualPa;
-    const totalProportionalAll = totalProportional + totalProportionalPa;
-    const totalIndividualMy = individualMyTxs + individualMyPa;
-    const totalIndividualPartner = individualPartnerTxs + individualPartnerPa;
-
     const myIncome = Number(me?.monthly_income) || 0;
     const partnerIncome = Number(partner?.monthly_income) || 0;
-    const totalIncome = myIncome + partnerIncome;
-
-    // What each should pay: metade do que é 50/50, fatia por renda do que
-    // é proporcional (ou metade se ninguém tem renda cadastrada), e tudo
-    // do que é individual e a pessoa pagou.
-    const myShare = (totalEqualAll / 2)
-      + (totalIncome > 0 ? (myIncome / totalIncome) * totalProportionalAll : totalProportionalAll / 2)
-      + totalIndividualMy;
-    const partnerShare = (totalEqualAll / 2)
-      + (totalIncome > 0 ? (partnerIncome / totalIncome) * totalProportionalAll : totalProportionalAll / 2)
-      + totalIndividualPartner;
-
-    const myBalance = totalMyPaid - myShare;
-    const partnerBalance = totalPartnerPaid - partnerShare;
+    const contributionRecords = [
+      ...visibleTxs.map(tx => ({ ...tx, _payer: actualPayer(tx) })),
+      ...monthParcelas.map(parcela => ({
+        ...parcela,
+        amount: parcela.installment_value,
+        _payer: parcela.responsible,
+      })),
+    ];
+    const contribution = calculateContribution(contributionRecords, user.id, myIncome, partnerIncome, {
+      getPayer: record => record._payer,
+    });
+    const totalMyPaid = contribution.myPaid;
+    const totalPartnerPaid = contribution.partnerPaid;
+    const myShare = contribution.myExpected;
+    const partnerShare = contribution.partnerExpected;
+    const myBalance = contribution.myBalance;
+    const partnerBalance = contribution.partnerBalance;
 
     // Top 5 categories
     const catTotals = {};
-    monthTxs.forEach(tx => {
+    visibleTxs.forEach(tx => {
       const cat = tx.category || 'outros';
-      catTotals[cat] = (catTotals[cat] || 0) + Number(tx.amount);
+      catTotals[cat] = (catTotals[cat] || 0) + sumMoney([tx], item => item.amount);
     });
     const topCategories = Object.entries(catTotals)
       .sort((a, b) => b[1] - a[1])
@@ -114,7 +90,7 @@ export default async function dashboardPage() {
     const maxCatValue = topCategories.length > 0 ? topCategories[0][1] : 1;
 
     // Last 5 transactions
-    const recentTxs = transactions.slice(0, 5);
+    const recentTxs = transactions.filter(tx => tx.split_type !== 'individual' || actualPayer(tx) === user.id).slice(0, 5);
 
     const totalBarWidth = totalMonth > 0 ? Math.min(100, (totalTransactions / totalMonth) * 100) : 0;
     const installmentBarWidth = totalMonth > 0 ? Math.min(100, (totalInstallmentsValue / totalMonth) * 100) : 0;
@@ -153,6 +129,28 @@ export default async function dashboardPage() {
                   <span class="stat-mini-bar"><span style="width:${installmentBarWidth}%;background:var(--warning);"></span></span>
                 ` : '<span class="stat-row-value">—</span>'}
               </span>
+            </div>
+          </div>
+        </div>
+
+        <div class="stat-card stat-card-individual">
+          <div class="stat-card-header">
+            <span class="stat-label">${t('dashboard.individualMonth')}</span>
+            <span class="stat-icon"><i class="ph ph-user"></i></span>
+          </div>
+          <div class="stat-value">${formatCurrency(individualMonthTotal)}</div>
+          <div class="stat-rows">
+            <div class="stat-row">
+              <span class="stat-row-label">${t('dashboard.individualExpenses')}</span>
+              <span class="stat-row-value">${formatCurrency(sumMoney(individualTxs, tx => tx.amount))}</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-row-label">${t('dashboard.installments')}</span>
+              <span class="stat-row-value">${formatCurrency(sumMoney(individualParcelas, p => p.installment_value || 0))}</span>
+            </div>
+            <div class="stat-row stat-row-total">
+              <span class="stat-row-label">${t('dashboard.onlyYou')}</span>
+              <span class="stat-row-value" style="color:var(--brand-light);font-weight:600;"><i class="ph ph-lock"></i></span>
             </div>
           </div>
         </div>
@@ -241,10 +239,10 @@ export default async function dashboardPage() {
                <h3><i class="ph ph-lightning"></i> ${t('dashboard.shortcuts')}</h3>
              </div>
              <div style="display:flex;flex-direction:column;gap:var(--space-sm)">
-               <button class="btn btn-outline btn-block" data-navigate="/transactions">
+               <button class="btn btn-outline btn-block" data-navigate="/transactions?new=1">
                  <i class="ph ph-plus"></i> ${t('transactions.new')}
                </button>
-               <button class="btn btn-outline btn-block" data-navigate="/parcelas">
+               <button class="btn btn-outline btn-block" data-navigate="/parcelas?new=1">
                  <i class="ph ph-package"></i> ${t('parcelas.new')}
                </button>
                <button class="btn btn-outline btn-block" data-navigate="/charts">

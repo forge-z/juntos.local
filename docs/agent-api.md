@@ -2,7 +2,8 @@
 
 Agentes (MCP ou integrações diretas) registram despesas com **um único token**
 criado em Configurações → API do agente (exibido uma única vez; o banco guarda
-só o hash). O token é do lar: tanto faz se foi Alexandre ou Priscila quem criou.
+só o hash). O token é do lar e usa os usernames definidos no assistente de
+configuração inicial.
 
 Base: `http://localhost:4205/api/v1/agent` (em produção, use a mesma origem do app).
 
@@ -14,6 +15,11 @@ Authorization: Bearer jl_live_<prefixo>_<segredo>
 
 Todas as rotas de agente exigem o Bearer. Revogar o token em Configurações
 invalida na hora.
+
+O token representa o administrador do lar. Por privacidade, `list_expenses`
+não retorna despesas marcadas como `individual` quando pertencem ao segundo
+usuário; despesas compartilhadas e individuais do próprio administrador
+continuam disponíveis.
 
 ## Contexto (monte chamadas válidas)
 
@@ -28,8 +34,8 @@ curl http://localhost:4205/api/v1/agent/context \
   "currency": "BRL",
   "today": "2026-08-08",
   "members": [
-    { "slug": "alexandre", "name": "Alexandre" },
-    { "slug": "priscila", "name": "Priscila" }
+    { "slug": "admin-configurado", "name": "Nome do administrador" },
+    { "slug": "segundo-usuario", "name": "Nome do segundo usuário" }
   ],
   "categories": ["alimentação", "moradia", "transporte", "saúde", "lazer", "educação", "assinaturas", "vestuário", "outros"],
   "split_types": ["equal", "proportional", "individual"],
@@ -44,7 +50,7 @@ curl -X POST http://localhost:4205/api/v1/agent/expenses \
   -H 'Authorization: Bearer jl_live_...' \
   -H 'Idempotency-Key: agente-2026-08-08-001' \
   -H 'Content-Type: application/json' \
-  -d '{"description":"Supermercado","amount":"287,43","category":"alimentação","split_type":"proportional","paid_by":"alexandre","payment_method":"Nubank Alexandre"}'
+  -d '{"description":"Supermercado","amount":"287,43","category":"alimentação","split_type":"proportional","paid_by":"admin-configurado","payment_method":"Cartão principal"}'
 ```
 
 Corpo (tudo opcional exceto `description` e `amount`):
@@ -53,10 +59,10 @@ Corpo (tudo opcional exceto `description` e `amount`):
 |---|---|---|
 | `description` | — | obrigatório, 1–160 caracteres |
 | `amount` | — | obrigatório, decimal com até 2 casas ("287,43" ou "287.43") |
-| `date` | hoje | `YYYY-MM-DD` |
+| `date` | hoje | `YYYY-MM-DD`; se informado e inválido, retorna 422 |
 | `category` | `outros` | enum do contexto; valor inválido = 422 |
 | `split_type` | `proportional` | enum do contexto; valor inválido = 422 |
-| `paid_by` | `alexandre` | slug do contexto; valor desconhecido = 422 |
+| `paid_by` | username do administrador | slug/username retornado por `/agent/context`; valor desconhecido = 422 |
 | `payment_method` | null | texto livre |
 | `dry_run` | `false` | `true` = valida/normaliza e não grava (não precisa de Idempotency-Key) |
 
@@ -67,6 +73,10 @@ Respostas:
 - `422 invalid_payload` campos inválidos;
 - `401 invalid_api_key` token inválido/revogado.
 
+`Idempotency-Key` representa uma operação lógica. Para retries do mesmo
+lançamento, reutilize a chave; para duas despesas legítimas com valores iguais,
+use chaves diferentes.
+
 ```json
 {
   "data": {
@@ -76,8 +86,9 @@ Respostas:
     "date": "2026-08-08",
     "category": "alimentação",
     "split_type": "proportional",
-    "paid_by": "alexandre",
-    "payment_method": "Nubank Alexandre",
+    "paid_by": "admin-configurado",
+    "paid_by_name": "Nome do administrador",
+    "payment_method": "Cartão principal",
     "source": "agent"
   },
   "idempotent_replay": false
@@ -90,6 +101,10 @@ Respostas:
 curl 'http://localhost:4205/api/v1/agent/expenses?month=2026-08&limit=50' \
   -H 'Authorization: Bearer jl_live_...'
 ```
+
+A resposta é paginada. Use `limit` (1–200) e envie o `pagination.next_cursor`
+como `cursor` na próxima chamada. O cursor é opaco e a ordenação é estável por
+data, criação e ID.
 
 ## Recomendações para agentes
 

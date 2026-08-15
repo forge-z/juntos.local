@@ -79,6 +79,25 @@
 .btn-lg { padding: 14px 28px; font-size: 1rem; border-radius: var(--radius-md); }
 .btn-block { width: 100%; }
 
+.link-button {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--danger);
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.payment-history {
+  margin: var(--space-sm) 0;
+  color: var(--body-dark);
+  font-size: 0.75rem;
+}
+.payment-history summary { cursor: pointer; color: var(--brand-light); }
+.payment-history-list { display: grid; gap: 4px; margin-top: 6px; }
+.payment-history-row { display: flex; justify-content: space-between; gap: var(--space-sm); }
+
 /* ── Inputs ── */
 .input-group {
   display: flex;
