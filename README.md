@@ -54,6 +54,15 @@ Acesse `http://localhost:4205`. O banco fica no volume `juntos-data`; os
 backups em `./backups` (montado no host). Para HTTPS (Tailscale/reverse
 proxy), mude `APP_ORIGIN` e `COOKIE_SECURE=true`.
 
+### Coolify
+
+No Coolify, selecione este repositório e o arquivo `docker-compose.yml`. Não é
+necessário versionar `.env`: configure no serviço as variáveis `APP_ORIGIN`,
+`APP_HOST=0.0.0.0`, `APP_PORT=3000`, `TZ`, `TRUST_PROXY`, `COOKIE_SECURE`,
+`SESSION_DAYS` e `HOST_PORT` conforme o domínio/proxy. O Compose passa essas
+variáveis explicitamente ao container e não depende de um `env_file` presente
+no repositório.
+
 O Compose publica `127.0.0.1:4205` por padrão para impedir que a senha
 temporária seja usada remotamente durante o primeiro boot. Depois de concluir
 o assistente, um proxy pode publicar o serviço definindo `HOST_BIND` (por
