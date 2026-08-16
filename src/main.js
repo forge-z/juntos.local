@@ -30,9 +30,15 @@ for (const [path, handler] of Object.entries(pages)) {
     store.setState({ user: session.user, session: true, loading: false, tier: 'premium' });
     if (session.setup_required && path !== '/setup') return navigate('/setup', true);
     if (path === '/setup' && !session.setup_required) return navigate('/dashboard', true);
-    if (session.must_change_password && !session.setup_required && path !== '/settings') return navigate('/settings', true);
-    const household = await loadHousehold();
-    if (!household) return navigate('/login', true);
+    const mustChangePassword = session.must_change_password && !session.setup_required;
+    if (mustChangePassword && path !== '/settings') return navigate('/settings', true);
+    // Temporary users are intentionally blocked from household data until they
+    // replace their provisional password. The settings page has a local-only
+    // password form for this state, so do not load protected household data.
+    if (!mustChangePassword) {
+      const household = await loadHousehold();
+      if (!household) return navigate('/login', true);
+    }
     return handler(params);
   });
 }

@@ -25,6 +25,23 @@ export function closingDayLabel(value) {
   return t('settings.dayN', { n: v });
 }
 
+function bindPasswordChangeForm() {
+  document.getElementById('password-change-form')?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const error = document.getElementById('password-change-error');
+    error.style.display = 'none';
+    try {
+      await updatePassword(document.getElementById('new-password').value, document.getElementById('current-password').value);
+      showToast('Senha alterada. Faça login novamente.', 'success');
+      await logout();
+      navigate('/login');
+    } catch (err) {
+      error.textContent = tError(err);
+      error.style.display = 'block';
+    }
+  });
+}
+
 export default async function settingsPage() {
   const app = document.getElementById('app');
   document.body.className = '';
@@ -34,8 +51,41 @@ export default async function settingsPage() {
   content.innerHTML = `<div class="loading-screen"><div class="spinner"></div><span>${t('common.loading')}</span></div>`;
 
   try {
-    const members = await getMembers();
     const user = store.state.user;
+
+    // A temporary member may only change their password. The API deliberately
+    // returns 428 for household reads in this state, so render this form before
+    // attempting to load members or any other household data.
+    if (user?.must_change_password) {
+      content.innerHTML = `
+        <div class="page-header">
+          <div>
+            <h1><i class="ph ph-lock-key"></i> Primeiro acesso</h1>
+            <div class="page-subtitle">Defina uma nova senha para continuar.</div>
+          </div>
+        </div>
+        <div class="settings-section">
+          <div class="card">
+            <p class="page-subtitle" style="margin-bottom:var(--space-lg);">A senha provisória deve ser substituída antes de acessar os dados do lar.</p>
+            <form id="password-change-form" style="display:flex;gap:var(--space-sm);flex-wrap:wrap;align-items:end;">
+              <div class="input-group"><label for="current-password">Senha provisória</label><input class="input" id="current-password" type="password" autocomplete="current-password" required></div>
+              <div class="input-group"><label for="new-password">Nova senha</label><input class="input" id="new-password" type="password" minlength="12" autocomplete="new-password" required></div>
+              <button class="btn btn-primary" type="submit">Definir senha</button>
+            </form>
+            <div id="password-change-error" class="form-error" style="display:none;margin-top:var(--space-sm)"></div>
+          </div>
+        </div>
+        <div class="settings-section"><button class="btn btn-danger-outline btn-block" id="settings-logout-btn"><i class="ph ph-sign-out"></i> ${t('nav.logout')}</button></div>
+      `;
+      bindPasswordChangeForm();
+      document.getElementById('settings-logout-btn')?.addEventListener('click', async () => {
+        await logout();
+        navigate('/login');
+      });
+      return;
+    }
+
+    const members = await getMembers();
     const household = store.state.household;
     const me = members.find(m => m.user_id === user.id);
 
@@ -478,15 +528,7 @@ export default async function settingsPage() {
     }
 
     // ── Senha ──
-    document.getElementById('password-change-form')?.addEventListener('submit', async (event) => {
-      event.preventDefault();
-      const error = document.getElementById('password-change-error'); error.style.display = 'none';
-      try {
-        await updatePassword(document.getElementById('new-password').value, document.getElementById('current-password').value);
-        showToast('Senha alterada. Faça login novamente.', 'success');
-        await logout(); navigate('/login');
-      } catch (err) { error.textContent = tError(err); error.style.display = 'block'; }
-    });
+    bindPasswordChangeForm();
 
     // ── API do agente (token único) ──
     if (isAdmin) {
