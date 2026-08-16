@@ -1,7 +1,18 @@
 services:
   app:
-    build:
-    env_file:
+    build: .
+    # Não use env_file aqui: o .env é local e fica fora do Git. O Coolify
+    # injeta estas variáveis pela configuração do serviço; o Compose local
+    # continua obtendo os valores do .env para a interpolação abaixo.
+    environment:
+      APP_PORT: ${APP_PORT:-3000}
+      APP_HOST: ${APP_HOST:-0.0.0.0}
+      APP_ORIGIN: ${APP_ORIGIN:-http://localhost:4205}
+      TZ: ${TZ:-America/Sao_Paulo}
+      TRUST_PROXY: ${TRUST_PROXY:-false}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      SESSION_DAYS: ${SESSION_DAYS:-30}
+      DATA_DIR: /app/data
     ports:
       # Restrinja a publicação ao próprio host por padrão durante o bootstrap.
       # Para expor atrás de um proxy/rede, defina HOST_BIND explicitamente.
