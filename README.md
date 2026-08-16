@@ -99,6 +99,9 @@ Claude Desktop, pi, Cursor etc. Você fala "paguei 287,43 no supermercado
 ontem com o Nubank" e o agente registra — data, categoria, divisão e pagador
 têm padrões sensatos, e `dry_run` valida antes de gravar.
 
+Para instruções prontas de comportamento do agente, veja
+[`docs/agent-prompt.md`](./docs/agent-prompt.md).
+
 ```bash
 npm --prefix mcp install
 JUNTOS_URL=http://localhost:4205 JUNTOS_API_TOKEN=jl_live_... node mcp/server.js
