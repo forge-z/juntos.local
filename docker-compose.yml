@@ -1,7 +1,7 @@
 services:
   app:
-    build: .
-    env_file: .
+    build:
+    env_file:
     ports:
       # Restrinja a publicação ao próprio host por padrão durante o bootstrap.
       # Para expor atrás de um proxy/rede, defina HOST_BIND explicitamente.
