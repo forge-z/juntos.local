@@ -734,6 +734,12 @@ export async function buildApp(config, db) {
     reply.header('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
     reply.header('Content-Security-Policy', "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'");
     if (_request.url.startsWith('/api/')) reply.header('Cache-Control', 'no-store');
+    // index.html aponta para assets versionados pelo Vite. O shell, porém,
+    // precisa ser buscado novamente após um deploy para não prender o
+    // navegador em um bundle antigo (e misturar versões da interface).
+    if (String(reply.getHeader('content-type') || '').startsWith('text/html')) {
+      reply.header('Cache-Control', 'no-store');
+    }
     if (config.origin.startsWith('https://')) reply.header('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
   });
 

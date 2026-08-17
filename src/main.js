@@ -58,6 +58,13 @@ window.addEventListener('error', (event) => {
 window.addEventListener('langchange', () => navigate(location.hash.replace(/^#/, '') || '/', true));
 
 document.addEventListener('DOMContentLoaded', async () => {
-  try { const session = await getSession(); store.setState({ loading: false, tier: 'premium' }); if (session && (location.hash === '#/' || !location.hash)) navigate('/dashboard', true); else initRouter(); }
+  try {
+    await getSession();
+    store.setState({ loading: false, tier: 'premium' });
+    // O router precisa ser inicializado também quando o usuário já chega
+    // autenticado na raiz. Sem isso, os links com hash só funcionam após um
+    // refresh, porque nenhum listener de hashchange é registrado.
+    initRouter();
+  }
   catch (error) { console.error(error); store.setState({ loading: false }); initRouter(); }
 });
